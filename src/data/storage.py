@@ -157,7 +157,7 @@ class StorageEngine:
         df = df.copy()
         df["index_name"] = index_name
 
-        for col in ["pe_percentile", "pb_percentile"]:
+        for col in ["pe", "pb", "dividend_yield", "pe_percentile", "pb_percentile"]:
             if col not in df.columns:
                 df[col] = None
 
@@ -173,6 +173,11 @@ class StorageEngine:
         """插入/更新国债收益率"""
         if df.empty:
             return 0
+
+        df = df.copy()
+        for col in ["cn_10y", "cn_5y", "cn_1y", "us_10y"]:
+            if col not in df.columns:
+                df[col] = None
 
         self.conn.execute("""
             INSERT OR REPLACE INTO bond_yield

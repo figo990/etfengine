@@ -9,6 +9,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
+
 st.sidebar.markdown(
     """
     <div style="text-align:center; padding: 0.5rem 0 1rem 0;">
@@ -22,13 +25,29 @@ st.sidebar.markdown(
 st.sidebar.divider()
 st.sidebar.caption("v0.1.0 · 仅供研究，不构成投资建议")
 
+# --- 加载真实数据 ---
+_metrics = {}
+try:
+    from src.data.storage import StorageEngine
+    _storage = StorageEngine()
+    for _idx in ["沪深300", "中证500", "创业板指", "中证红利"]:
+        _df = _storage.get_index_valuation(_idx)
+        if not _df.empty:
+            _latest = _df.iloc[-1]
+            _metrics[_idx] = {
+                "pe_pct": round(float(_latest.get("pe_percentile", 0)), 1),
+                "div_yield": round(float(_latest.get("dividend_yield", 0)), 2),
+            }
+except Exception:
+    pass
+
 # --- 主页内容 ---
 st.markdown(
     """
-    <h1 style="text-align:center; padding:1.5rem 0 0.5rem 0;">
+    <h1 style="text-align:center; padding:0.5rem 0 0.3rem 0;">
         📊 ETFEngine
     </h1>
-    <p style="text-align:center; color:#666; font-size:1.1rem; margin-bottom:2rem;">
+    <p style="text-align:center; color:#666; font-size:1.05rem; margin-bottom:1rem;">
         一站式 ETF 投资策略研究、回测与管理工具
     </p>
     """,
@@ -39,13 +58,17 @@ st.divider()
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("沪深300 PE百分位", "45.2%", delta="-2.1%")
+    v = _metrics.get("沪深300", {}).get("pe_pct", "--")
+    st.metric("沪深300 PE百分位", f"{v}%" if v != "--" else "--")
 with col2:
-    st.metric("股债性价比(ERP)", "3.12%", delta="0.05%")
+    v = _metrics.get("中证500", {}).get("pe_pct", "--")
+    st.metric("中证500 PE百分位", f"{v}%" if v != "--" else "--")
 with col3:
-    st.metric("市场温度", "52.3", delta="-1.8")
+    v = _metrics.get("中证红利", {}).get("div_yield", "--")
+    st.metric("中证红利 股息率", f"{v}%" if v != "--" else "--")
 with col4:
-    st.metric("偏股基金3年收益", "2.5%", delta="-0.3%")
+    v = _metrics.get("创业板指", {}).get("pe_pct", "--")
+    st.metric("创业板 PE百分位", f"{v}%" if v != "--" else "--")
 
 st.divider()
 
@@ -86,7 +109,10 @@ with c3:
 
 st.divider()
 
-st.info(
-    "👈 使用左侧导航栏进入各功能页面。"
-    "首次使用请先运行数据初始化：`python scripts/init_data.py`"
-)
+if not _metrics:
+    st.info(
+        "👈 使用左侧导航栏进入各功能页面。"
+        "首次使用请先运行数据初始化：`python scripts/init_data.py`"
+    )
+else:
+    st.success("✅ 数据已就绪，使用左侧导航栏进入各功能页面")

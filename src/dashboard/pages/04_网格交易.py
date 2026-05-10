@@ -1,6 +1,8 @@
 """网格交易页"""
 
 import streamlit as st
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np

@@ -1,6 +1,8 @@
 """组合管理页"""
 
 import streamlit as st
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
 import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd

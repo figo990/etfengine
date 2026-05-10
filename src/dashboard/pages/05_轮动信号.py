@@ -1,6 +1,8 @@
 """轮动信号页"""
 
 import streamlit as st
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd

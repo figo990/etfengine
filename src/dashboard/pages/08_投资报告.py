@@ -1,6 +1,8 @@
 """报告中心页"""
 
 import streamlit as st
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
 from datetime import date
 
 

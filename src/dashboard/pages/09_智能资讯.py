@@ -1,5 +1,9 @@
 """智能资讯页：行业新闻 / 政策追踪 / 基本面分析"""
 
+import streamlit as st
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
+
 import json
 from datetime import date, timedelta
 
@@ -7,7 +11,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import streamlit as st
 
 st.title("🧠 智能资讯中心")
 st.divider()

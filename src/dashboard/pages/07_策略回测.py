@@ -1,11 +1,14 @@
 """策略回测页"""
 
+import streamlit as st
+from src.dashboard.styles import inject_global_styles
+inject_global_styles()
+
 from datetime import date
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import streamlit as st
 from plotly.subplots import make_subplots
 
 st.title("🧪 策略回测")
