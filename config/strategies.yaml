@@ -1,0 +1,78 @@
+strategies:
+  dca:
+    simple:
+      frequency: "monthly"        # weekly | biweekly | monthly
+      amount: 1000                # 每期定投金额(元)
+      day_of_month: 1             # 每月第几个交易日
+
+    valuation:
+      base_amount: 1000
+      pe_lookback_years: 5        # PE百分位回看年数
+      tiers:
+        - percentile_max: 20
+          multiplier: 2.0         # 极度低估: 2倍
+        - percentile_max: 40
+          multiplier: 1.5         # 低估: 1.5倍
+        - percentile_max: 60
+          multiplier: 1.0         # 正常: 1倍
+        - percentile_max: 80
+          multiplier: 0.5         # 高估: 0.5倍
+        - percentile_max: 100
+          multiplier: 0.0         # 极度高估: 停止
+
+    ma_deviation:
+      base_amount: 1000
+      ma_period: 250              # 均线周期(交易日)
+      tiers:
+        - deviation_max: -12.5
+          multiplier: 4.0
+        - deviation_max: -5.0
+          multiplier: 3.0
+        - deviation_max: 0.0
+          multiplier: 2.0
+        - deviation_max: 10.0
+          multiplier: 1.0
+        - deviation_max: 20.0
+          multiplier: 0.6
+        - deviation_max: 30.0
+          multiplier: 0.3
+        - deviation_max: 100.0
+          multiplier: 0.0
+
+  grid:
+    default:
+      grid_type: "arithmetic"     # arithmetic | geometric | atr
+      price_upper: 1.500
+      price_lower: 1.000
+      num_grids: 10
+      amount_per_grid: 500
+      initial_position_ratio: 0.5
+
+    atr:
+      atr_period: 14
+      atr_multiplier: 1.5
+
+  rotation:
+    momentum:
+      lookback_days: 20
+      rebalance_frequency: "daily"
+      pairs:
+        - name: "大小盘轮动"
+          large: "510050"         # 上证50
+          small: "512100"         # 中证1000
+
+    style:
+      signals:
+        bollinger_period: 252
+        return_diff_period: 40
+        mean_revert_period: 1250  # 5年均线
+      confirmation_threshold: 2   # 需要2个以上信号确认
+
+    bond_equity:
+      equity_index: "沪深300"
+      bond_yield_source: "中国10年期国债"
+      thresholds:
+        high: 0.03                # > 3%: 全仓权益
+        mid: 0.01                 # > 1%: 70%权益
+        low: -0.01               # > -1%: 30%权益
+                                  # else: 全仓债券

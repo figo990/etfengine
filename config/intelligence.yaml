@@ -1,0 +1,67 @@
+llm:
+  provider: "deepseek"          # deepseek | tongyi | openai
+  api_key_env: "DEEPSEEK_API_KEY"
+  base_url: "https://api.deepseek.com"
+  model: "deepseek-chat"
+  max_tokens: 500
+  temperature: 0.1
+  timeout_seconds: 30
+  max_retries: 2
+
+news_monitor:
+  enabled: true
+  update_frequency: "hourly"     # hourly | daily
+  max_news_per_batch: 50         # 单次最多采集条数
+  max_news_per_day: 200          # 每日最多处理条数
+  dedup_window_hours: 24         # 去重时间窗口
+  llm_batch_size: 10             # LLM 批量分析大小
+  sources:
+    - "eastmoney"                # 东方财富
+    - "cls"                      # 财联社
+    - "cctv"                     # 央视新闻
+
+fundamental:
+  update_frequency: "weekly"     # 基本面数据更新频率
+  tracked_indices:
+    - "沪深300"
+    - "中证500"
+    - "中证1000"
+    - "创业板指"
+    - "中证红利"
+    - "上证50"
+
+sectors:
+  消费:
+    keywords: ["消费", "零售", "白酒", "家电", "食品", "饮料", "纺织", "旅游"]
+    etf_codes: ["159928"]
+    index_name: "中证消费"
+  医药:
+    keywords: ["医药", "创新药", "集采", "医保", "CXO", "生物医药", "医疗器械", "疫苗"]
+    etf_codes: ["512010"]
+    index_name: "中证医药"
+  半导体:
+    keywords: ["芯片", "半导体", "光刻", "AI芯片", "存储", "晶圆", "封测", "EDA"]
+    etf_codes: ["512480"]
+    index_name: "国证芯片"
+  新能源:
+    keywords: ["光伏", "锂电", "新能源车", "储能", "风电", "氢能", "充电桩", "电池"]
+    etf_codes: ["516160"]
+    index_name: "中证新能源"
+  军工:
+    keywords: ["军工", "国防", "航空", "导弹", "卫星", "军贸", "航天", "雷达"]
+    etf_codes: ["512660"]
+    index_name: "中证军工"
+  金融:
+    keywords: ["银行", "保险", "证券", "券商", "信托", "金融科技", "利率"]
+    etf_codes: ["510230"]
+    index_name: "上证金融"
+
+policy_sources_weight:
+  国务院: 1.5
+  发改委: 1.3
+  工信部: 1.3
+  财政部: 1.2
+  央行: 1.3
+  证监会: 1.2
+  科技部: 1.1
+  商务部: 1.1

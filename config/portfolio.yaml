@@ -1,0 +1,31 @@
+portfolio:
+  name: "默认ETF组合"
+  total_capital: 100000           # 总资金(元)
+
+  holdings:
+    - etf: "510300"
+      name: "沪深300ETF"
+      target_weight: 0.30
+    - etf: "512100"
+      name: "中证1000ETF"
+      target_weight: 0.20
+    - etf: "515080"
+      name: "中证红利ETF"
+      target_weight: 0.20
+    - etf: "513100"
+      name: "纳指100ETF"
+      target_weight: 0.15
+    - etf: "518880"
+      name: "黄金ETF"
+      target_weight: 0.15
+
+  rebalance:
+    trigger: "drift"              # drift | periodic | both
+    drift_threshold: 0.05         # 偏离超过5%触发再平衡
+    periodic_frequency: "monthly" # 定期检查频率
+    min_trade_amount: 1000        # 最小交易金额(避免过小交易)
+
+  risk_limits:
+    max_drawdown_alert: 0.15      # 最大回撤预警线 15%
+    max_single_position: 0.40     # 单只ETF最大仓位 40%
+    min_single_position: 0.05     # 单只ETF最小仓位 5%

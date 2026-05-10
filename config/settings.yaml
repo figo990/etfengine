@@ -1,0 +1,50 @@
+app:
+  name: "ETFEngine"
+  version: "0.1.0"
+  log_level: "INFO"
+  log_dir: "data/logs"
+  timezone: "Asia/Shanghai"
+
+database:
+  engine: "duckdb"  # sqlite | duckdb
+  path: "data/db/etfengine.duckdb"
+  sqlite_path: "data/db/etfengine.sqlite"
+
+data_source:
+  primary: "akshare"
+  fallback: "baostock"
+  retry:
+    max_attempts: 3
+    wait_seconds: 5
+  rate_limit:
+    requests_per_minute: 30
+  cache:
+    enabled: true
+    ttl_hours: 4
+
+backtest:
+  default_start_date: "2018-01-01"
+  default_end_date: null  # null = 最新日期
+  trading_cost:
+    commission_rate: 0.0003  # 万3佣金
+    min_commission: 5.0      # 最低5元
+    stamp_tax_rate: 0.001    # 千1印花税(卖出)
+    slippage_rate: 0.0001    # 万1滑点
+  rules:
+    t_plus_1: true           # A股 T+1 规则
+    price_limit: true        # 涨跌停限制
+
+scheduler:
+  daily_update_time: "18:30"  # 每日数据更新时间
+  signal_generate_time: "19:00"  # 信号生成时间
+
+notify:
+  enabled: false
+  channels:
+    email:
+      enabled: false
+      smtp_host: ""
+      smtp_port: 465
+    wechat:
+      enabled: false
+      webhook_url: ""
