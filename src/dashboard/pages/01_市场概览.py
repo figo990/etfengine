@@ -22,13 +22,20 @@ try:
             df = storage.get_index_valuation(idx_name)
             if not df.empty:
                 latest = df.iloc[-1]
+                pe_val = latest.get("pe")
+                pe_pct = latest.get("pe_percentile")
+                div_y = latest.get("dividend_yield")
+
+                # 如果没有百分位，动态计算
+                if pd.isna(pe_pct) and not pd.isna(pe_val):
+                    all_pe = df["pe"].dropna()
+                    pe_pct = (all_pe < pe_val).sum() / len(all_pe) * 100 if len(all_pe) > 1 else 0
+
                 valuation_rows.append({
                     "指数": idx_name,
-                    "PE": round(latest.get("pe", 0), 2),
-                    "PE百分位(%)": round(latest.get("pe_percentile", 0), 1),
-                    "PB": round(latest.get("pb", 0), 2),
-                    "PB百分位(%)": round(latest.get("pb_percentile", 0), 1),
-                    "股息率(%)": round(latest.get("dividend_yield", 0), 2),
+                    "PE": f"{float(pe_val):.2f}" if pe_val and not pd.isna(pe_val) else "--",
+                    "PE百分位(%)": f"{float(pe_pct):.1f}" if pe_pct and not pd.isna(pe_pct) else "--",
+                    "股息率(%)": f"{float(div_y):.2f}" if div_y and not pd.isna(div_y) else "--",
                 })
         except Exception:
             pass
@@ -40,39 +47,41 @@ try:
         raise ValueError("无数据")
 
 except Exception:
-    val_df = pd.DataFrame({
-        "指数": ["上证50", "沪深300", "中证500", "创业板指", "中证红利"],
-        "PE": [10.2, 12.5, 22.1, 30.5, 6.8],
-        "PE百分位(%)": [35, 45, 55, 38, 25],
-        "PB": [1.1, 1.3, 1.8, 3.2, 0.7],
-        "PB百分位(%)": [28, 32, 45, 35, 15],
-        "股息率(%)": [3.8, 3.0, 1.5, 0.6, 5.2],
-    })
-    data_source = "示例数据"
+    val_df = pd.DataFrame()
+    data_source = "无数据"
 
 st.caption(f"数据来源: {data_source}")
+
+if val_df.empty:
+    st.warning("尚未初始化数据，请运行 `python scripts/init_data.py`")
+    st.stop()
+
 st.divider()
 
 # KPI Metrics
 col1, col2, col3, col4 = st.columns(4)
 
-hs300 = val_df[val_df["指数"] == "沪深300"]
-zz500 = val_df[val_df["指数"] == "中证500"]
-zzhl = val_df[val_df["指数"] == "中证红利"]
-cyb = val_df[val_df["指数"] == "创业板指"]
+
+def _get_val(idx_name, col):
+    row = val_df[val_df["指数"] == idx_name]
+    if len(row) == 0:
+        return "--"
+    v = row[col].values[0]
+    return v if v != "--" else "--"
+
 
 with col1:
-    pe_pct = hs300["PE百分位(%)"].values[0] if len(hs300) else 45
-    st.metric("沪深300 PE百分位", f"{pe_pct:.1f}%")
+    v = _get_val("沪深300", "PE百分位(%)")
+    st.metric("沪深300 PE百分位", f"{v}%" if v != "--" else "--")
 with col2:
-    pe_pct2 = zz500["PE百分位(%)"].values[0] if len(zz500) else 55
-    st.metric("中证500 PE百分位", f"{pe_pct2:.1f}%")
+    v = _get_val("中证500", "PE百分位(%)")
+    st.metric("中证500 PE百分位", f"{v}%" if v != "--" else "--")
 with col3:
-    div_yield = zzhl["股息率(%)"].values[0] if len(zzhl) else 5.2
-    st.metric("中证红利 股息率", f"{div_yield:.2f}%")
+    v = _get_val("中证红利", "股息率(%)")
+    st.metric("中证红利 股息率", f"{v}%" if v != "--" else "--")
 with col4:
-    pe_pct3 = cyb["PE百分位(%)"].values[0] if len(cyb) else 38
-    st.metric("创业板 PE百分位", f"{pe_pct3:.1f}%")
+    v = _get_val("创业板指", "PE百分位(%)")
+    st.metric("创业板 PE百分位", f"{v}%" if v != "--" else "--")
 
 st.divider()
 
@@ -80,7 +89,10 @@ st.divider()
 st.subheader("📋 指数估值速览")
 
 
-def _zone(pe_pct: float) -> str:
+def _zone(pe_pct) -> str:
+    if pe_pct == "--" or pe_pct is None:
+        return "--"
+    pe_pct = float(pe_pct)
     if pe_pct <= 20:
         return "极度低估"
     elif pe_pct <= 40:
@@ -118,38 +130,43 @@ st.divider()
 # PE 百分位柱状图
 st.subheader("📊 PE 百分位对比")
 
-fig = go.Figure()
-colors = ["#ef5350" if p > 70 else "#66bb6a" if p < 30 else "#ffa726"
-          for p in val_df["PE百分位(%)"].values]
+chart_df = val_df[val_df["PE百分位(%)"] != "--"].copy()
+chart_df["PE百分位(%)"] = chart_df["PE百分位(%)"].astype(float)
 
-fig.add_trace(go.Bar(
-    x=val_df["指数"],
-    y=val_df["PE百分位(%)"],
-    marker_color=colors,
-    text=val_df["PE百分位(%)"].apply(lambda x: f"{x:.0f}%"),
-    textposition="outside",
-))
+if not chart_df.empty:
+    fig = go.Figure()
+    pe_pcts = chart_df["PE百分位(%)"].values
+    colors = ["#ef5350" if p > 70 else "#66bb6a" if p < 30 else "#ffa726" for p in pe_pcts]
 
-fig.add_hline(y=30, line_dash="dash", line_color="green",
-              annotation_text="低估线 30%")
-fig.add_hline(y=70, line_dash="dash", line_color="red",
-              annotation_text="高估线 70%")
+    fig.add_trace(go.Bar(
+        x=chart_df["指数"],
+        y=pe_pcts,
+        marker_color=colors,
+        text=[f"{p:.0f}%" for p in pe_pcts],
+        textposition="outside",
+    ))
 
-fig.update_layout(
-    yaxis_range=[0, 100],
-    yaxis_title="PE百分位(%)",
-    height=350,
-    margin=dict(t=20, b=20),
-    showlegend=False,
-)
-st.plotly_chart(fig, use_container_width=True)
+    fig.add_hline(y=30, line_dash="dash", line_color="green",
+                  annotation_text="低估线 30%")
+    fig.add_hline(y=70, line_dash="dash", line_color="red",
+                  annotation_text="高估线 70%")
+
+    fig.update_layout(
+        yaxis_range=[0, 100],
+        yaxis_title="PE百分位(%)",
+        height=350,
+        margin=dict(t=20, b=20),
+        showlegend=False,
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
 # 市场温度计
 st.subheader("🌡️ 市场温度计")
 
-avg_pe_pct = val_df["PE百分位(%)"].mean()
+numeric_pcts = chart_df["PE百分位(%)"] if not chart_df.empty else pd.Series([50])
+avg_pe_pct = numeric_pcts.mean()
 
 temp_col1, temp_col2 = st.columns([2, 3])
 
@@ -182,5 +199,3 @@ with temp_col2:
     fig_gauge.update_layout(height=250, margin=dict(t=30, b=10))
     st.plotly_chart(fig_gauge, use_container_width=True)
 
-if data_source == "示例数据":
-    st.caption("* 当前展示为示例数据，运行 `python scripts/init_data.py` 后将显示真实数据")

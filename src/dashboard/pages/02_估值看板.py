@@ -3,70 +3,129 @@
 import streamlit as st
 from src.dashboard.styles import inject_global_styles
 inject_global_styles()
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
-from datetime import date, timedelta
-
-
+from datetime import date
 
 st.title("📈 估值看板")
 st.divider()
 
-tab1, tab2, tab3, tab4 = st.tabs(["PE/PB 百分位", "股债性价比", "五年之锚", "情绪指标"])
+# --- 加载真实数据 ---
+@st.cache_data(ttl=300)
+def _load_valuation_data():
+    """从 DuckDB 加载所有指数估值"""
+    from src.data.storage import StorageEngine
+    storage = StorageEngine()
+    indices = ["沪深300", "中证500", "中证1000", "上证50", "创业板指", "中证红利"]
+    result = {}
+    for idx in indices:
+        df = storage.get_index_valuation(idx)
+        if not df.empty:
+            result[idx] = df
+    storage.close()
+    return result
+
+
+@st.cache_data(ttl=300)
+def _load_bond_data():
+    """加载国债收益率"""
+    from src.data.storage import StorageEngine
+    storage = StorageEngine()
+    df = storage.get_bond_yield()
+    storage.close()
+    return df
+
+
+try:
+    valuation_data = _load_valuation_data()
+    bond_data = _load_bond_data()
+    has_data = bool(valuation_data)
+except Exception:
+    valuation_data = {}
+    bond_data = pd.DataFrame()
+    has_data = False
+
+if not has_data:
+    st.warning("尚未初始化数据，请运行 `python scripts/init_data.py`")
+    st.stop()
+
+# --- Tab 1: PE/PB 百分位 ---
+tab1, tab2, tab3 = st.tabs(["PE/PB 百分位", "股债性价比", "估值历史走势"])
 
 with tab1:
-    st.subheader("PE/PB 百分位追踪")
+    st.subheader("指数估值速览")
 
-    lookback = st.selectbox("回看周期", ["3年", "5年", "10年", "全历史"], index=1)
+    rows = []
+    for idx_name, df in valuation_data.items():
+        if df.empty:
+            continue
+        latest = df.iloc[-1]
+        pe_val = latest.get("pe")
+        pe_pct = latest.get("pe_percentile")
+        div_y = latest.get("dividend_yield")
 
-    valuation_df = pd.DataFrame({
-        "指数": ["上证50", "沪深300", "中证500", "中证1000", "创业板指", "科创50",
-                 "中证红利", "中证消费", "中证医药"],
-        "PE": [10.2, 12.5, 22.1, 35.2, 30.5, 48.3, 6.8, 28.5, 25.1],
-        "PE百分位(%)": [35, 45, 55, 42, 38, 62, 25, 48, 18],
-        "PB": [1.1, 1.3, 1.8, 2.5, 3.2, 4.1, 0.7, 4.5, 2.8],
-        "PB百分位(%)": [28, 32, 45, 50, 35, 55, 15, 42, 12],
-        "股息率(%)": [3.8, 3.0, 1.5, 0.8, 0.6, 0.3, 5.2, 1.2, 1.0],
-        "估值区间": ["低估", "适中", "适中", "适中", "低估", "偏高", "低估", "适中", "极度低估"],
-    })
+        # 如果没有 pe_percentile，手动计算
+        if pd.isna(pe_pct) and not pd.isna(pe_val):
+            all_pe = df["pe"].dropna()
+            pe_pct = (all_pe < pe_val).sum() / len(all_pe) * 100 if len(all_pe) > 0 else None
 
-    st.dataframe(
-        valuation_df.style.map(
-            lambda x: "background-color: #d4edda" if x == "低估" or x == "极度低估"
-            else "background-color: #f8d7da" if x == "偏高" or x == "极度高估"
-            else "",
-            subset=["估值区间"],
-        ),
-        use_container_width=True,
-        hide_index=True,
-    )
+        zone = "适中"
+        if pe_pct is not None:
+            if pe_pct <= 20:
+                zone = "极度低估"
+            elif pe_pct <= 40:
+                zone = "低估"
+            elif pe_pct <= 60:
+                zone = "适中"
+            elif pe_pct <= 80:
+                zone = "偏高"
+            else:
+                zone = "高估"
 
-    st.divider()
-    st.subheader("PE 百分位历史走势")
+        rows.append({
+            "指数": idx_name,
+            "PE": round(pe_val, 2) if pe_val and not pd.isna(pe_val) else "--",
+            "PE百分位(%)": round(pe_pct, 1) if pe_pct and not pd.isna(pe_pct) else "--",
+            "股息率(%)": round(div_y, 2) if div_y and not pd.isna(div_y) else "--",
+            "估值区间": zone,
+            "数据日期": str(latest.get("trade_date", "")),
+        })
 
-    selected_index = st.selectbox("选择指数", valuation_df["指数"].tolist(), index=1)
+    if rows:
+        val_df = pd.DataFrame(rows)
 
-    # 模拟历史 PE 百分位数据
-    dates = pd.date_range(end=date.today(), periods=1250, freq="B")
-    np.random.seed(42)
-    pe_pctile = 50 + np.cumsum(np.random.randn(len(dates)) * 0.5)
-    pe_pctile = np.clip(pe_pctile, 0, 100)
+        def _color_zone(val):
+            colors = {
+                "极度低估": "background-color: #c8e6c9",
+                "低估": "background-color: #e8f5e9",
+                "适中": "background-color: #fff9c4",
+                "偏高": "background-color: #ffe0b2",
+                "高估": "background-color: #ffcdd2",
+            }
+            return colors.get(val, "")
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dates, y=pe_pctile, mode="lines", name="PE百分位"))
-    fig.add_hline(y=20, line_dash="dash", line_color="green", annotation_text="低估线(20%)")
-    fig.add_hline(y=80, line_dash="dash", line_color="red", annotation_text="高估线(80%)")
-    fig.add_hrect(y0=0, y1=20, fillcolor="green", opacity=0.05)
-    fig.add_hrect(y0=80, y1=100, fillcolor="red", opacity=0.05)
-    fig.update_layout(
-        title=f"{selected_index} PE百分位历史走势",
-        yaxis_title="百分位(%)",
-        height=400,
-    )
-    st.plotly_chart(fig, use_container_width=True)
+        st.dataframe(
+            val_df.style.map(_color_zone, subset=["估值区间"]),
+            use_container_width=True, hide_index=True,
+        )
 
+        # PE百分位柱状图
+        pe_pcts = [r["PE百分位(%)"] for r in rows if r["PE百分位(%)"] != "--"]
+        idx_names = [r["指数"] for r in rows if r["PE百分位(%)"] != "--"]
+        if pe_pcts:
+            colors = ["#ef5350" if p > 70 else "#66bb6a" if p < 30 else "#ffa726" for p in pe_pcts]
+            fig = go.Figure(go.Bar(
+                x=idx_names, y=pe_pcts, marker_color=colors,
+                text=[f"{p:.0f}%" for p in pe_pcts], textposition="outside",
+            ))
+            fig.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="低估线30%")
+            fig.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="高估线70%")
+            fig.update_layout(yaxis_range=[0, 100], yaxis_title="PE百分位(%)",
+                              height=350, margin=dict(t=20, b=20), showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
     st.subheader("股债性价比 (FED 模型)")
@@ -79,99 +138,98 @@ with tab2:
     - ERP < 0%: 偏债配置
     """)
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("沪深300盈利收益率", "8.0%", help="1/PE × 100%")
-    with col2:
-        st.metric("中国10年国债", "2.35%")
-    with col3:
-        st.metric("中国视角 ERP", "5.65%", delta="0.12%")
+    hs300_df = valuation_data.get("沪深300", pd.DataFrame())
+    if not hs300_df.empty and not bond_data.empty:
+        latest_pe = hs300_df["pe"].dropna().iloc[-1] if "pe" in hs300_df.columns else None
+        latest_bond = bond_data["cn_10y"].dropna().iloc[-1] if "cn_10y" in bond_data.columns else None
+        us_10y = bond_data["us_10y"].dropna().iloc[-1] if "us_10y" in bond_data.columns else None
 
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        st.metric("美国10年国债", "4.28%")
-    with col5:
-        st.metric("美国视角 ERP", "3.72%", delta="-0.05%")
-    with col6:
-        st.metric("配置建议", "全仓权益")
+        if latest_pe and latest_pe > 0 and latest_bond:
+            earnings_yield = (1 / latest_pe) * 100
+            cn_erp = earnings_yield - latest_bond
+            us_erp = (earnings_yield - us_10y) if us_10y and not pd.isna(us_10y) else None
 
-    # 模拟 ERP 历史
-    dates = pd.date_range(end=date.today(), periods=1250, freq="B")
-    np.random.seed(123)
-    erp_cn = 3.5 + np.cumsum(np.random.randn(len(dates)) * 0.02)
-    erp_us = 2.5 + np.cumsum(np.random.randn(len(dates)) * 0.02)
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("沪深300盈利收益率", f"{earnings_yield:.2f}%")
+            with col2:
+                st.metric("中国10年国债", f"{latest_bond:.2f}%")
+            with col3:
+                st.metric("中国视角 ERP", f"{cn_erp:.2f}%")
 
-    fig = make_subplots(specs=[[{"secondary_y": False}]])
-    fig.add_trace(go.Scatter(x=dates, y=erp_cn, mode="lines", name="中国视角ERP"))
-    fig.add_trace(go.Scatter(x=dates, y=erp_us, mode="lines", name="美国视角ERP"))
-    fig.add_hline(y=4, line_dash="dash", line_color="green", annotation_text="强烈看多(4%)")
-    fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="偏债(0%)")
-    fig.update_layout(title="股债性价比(ERP)历史走势", yaxis_title="ERP(%)", height=400)
-    st.plotly_chart(fig, use_container_width=True)
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                st.metric("美国10年国债", f"{us_10y:.2f}%" if us_10y and not pd.isna(us_10y) else "--")
+            with col5:
+                st.metric("美国视角 ERP", f"{us_erp:.2f}%" if us_erp else "--")
+            with col6:
+                if cn_erp > 4:
+                    advice = "全仓权益"
+                elif cn_erp > 2:
+                    advice = "偏股配置"
+                elif cn_erp > 0:
+                    advice = "均衡配置"
+                else:
+                    advice = "偏债配置"
+                st.metric("配置建议", advice)
 
+            # ERP 历史走势（基于真实数据拼接）
+            if "pe" in hs300_df.columns and "trade_date" in hs300_df.columns:
+                merged = hs300_df[["trade_date", "pe"]].copy()
+                merged["trade_date"] = pd.to_datetime(merged["trade_date"])
+                merged = merged.dropna(subset=["pe"])
+                merged["earnings_yield"] = 1 / merged["pe"] * 100
+
+                bond_copy = bond_data[["trade_date", "cn_10y"]].copy()
+                bond_copy["trade_date"] = pd.to_datetime(bond_copy["trade_date"])
+                merged = merged.merge(bond_copy, on="trade_date", how="left")
+                merged["cn_10y"] = merged["cn_10y"].ffill()
+                merged["erp"] = merged["earnings_yield"] - merged["cn_10y"]
+                merged = merged.dropna(subset=["erp"])
+
+                if len(merged) > 5:
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=merged["trade_date"], y=merged["erp"],
+                        mode="lines", name="ERP (中国视角)",
+                    ))
+                    fig.add_hline(y=4, line_dash="dash", line_color="green", annotation_text="强烈看多(4%)")
+                    fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="偏债(0%)")
+                    fig.update_layout(title="沪深300 股债性价比历史", yaxis_title="ERP(%)", height=380)
+                    st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("PE 或国债收益率数据缺失")
+    else:
+        st.info("请先初始化数据")
 
 with tab3:
-    st.subheader("五年之锚 (对数回归通道)")
-    st.markdown("对中证全A指数做对数回归，叠加1.5σ置信区间")
+    st.subheader("指数 PE 历史走势")
 
-    dates = pd.date_range(end=date.today(), periods=2500, freq="B")
-    t = np.arange(1, len(dates) + 1, dtype=float)
-    np.random.seed(42)
-    ln_price = 0.15 * np.log(t) + 7.5 + np.cumsum(np.random.randn(len(dates)) * 0.003)
-    price = np.exp(ln_price)
+    available_indices = list(valuation_data.keys())
+    if available_indices:
+        selected = st.selectbox("选择指数", available_indices)
+        sel_df = valuation_data[selected]
 
-    # 拟合
-    from scipy import stats as sp_stats
-    slope, intercept, _, _, _ = sp_stats.linregress(np.log(t), ln_price)
-    fitted = np.exp(slope * np.log(t) + intercept)
-    residual_std = (ln_price - (slope * np.log(t) + intercept)).std()
-    upper = np.exp(slope * np.log(t) + intercept + 1.5 * residual_std)
-    lower = np.exp(slope * np.log(t) + intercept - 1.5 * residual_std)
+        if "pe" in sel_df.columns and "trade_date" in sel_df.columns:
+            chart_df = sel_df[["trade_date", "pe"]].dropna()
+            chart_df["trade_date"] = pd.to_datetime(chart_df["trade_date"])
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dates, y=price, mode="lines", name="中证全A", line=dict(width=1.5)))
-    fig.add_trace(go.Scatter(x=dates, y=fitted, mode="lines", name="回归中轨",
-                             line=dict(dash="dash", color="orange")))
-    fig.add_trace(go.Scatter(x=dates, y=upper, mode="lines", name="上轨(+1.5σ)",
-                             line=dict(dash="dot", color="red")))
-    fig.add_trace(go.Scatter(x=dates, y=lower, mode="lines", name="下轨(-1.5σ)",
-                             line=dict(dash="dot", color="green")))
-    fig.update_layout(title="五年之锚 - 中证全A对数回归通道", yaxis_title="指数点位", height=450)
-    st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=chart_df["trade_date"], y=chart_df["pe"],
+                mode="lines", name="PE",
+            ))
+            fig.update_layout(
+                title=f"{selected} PE 历史走势",
+                yaxis_title="PE", height=400,
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-    position = (ln_price[-1] - (slope * np.log(t[-1]) + intercept)) / (1.5 * residual_std)
-    st.info(f"当前位置: {position:.2f} (范围 -1 ~ +1, 0=中轨)")
-
-
-with tab4:
-    st.subheader("偏股基金3年滚动年化收益")
-    st.markdown("""
-    - **> 30%**: 泡沫区域（极度贪婪）
-    - **> 15%**: 偏乐观
-    - **0% ~ 15%**: 正常
-    - **-5% ~ 0%**: 偏悲观
-    - **< -10%**: 底部区域（极度恐惧）
-    """)
-
-    dates = pd.date_range(end=date.today(), periods=2000, freq="B")
-    np.random.seed(88)
-    rolling_3y = 5 + np.cumsum(np.random.randn(len(dates)) * 0.15)
-    rolling_3y = np.clip(rolling_3y, -20, 40)
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=dates, y=rolling_3y, mode="lines", name="3年滚动年化"))
-    fig.add_hline(y=30, line_dash="dash", line_color="red", annotation_text="泡沫线(30%)")
-    fig.add_hline(y=-10, line_dash="dash", line_color="green", annotation_text="底部线(-10%)")
-    fig.add_hline(y=0, line_dash="dot", line_color="gray")
-    fig.add_hrect(y0=30, y1=40, fillcolor="red", opacity=0.05)
-    fig.add_hrect(y0=-20, y1=-10, fillcolor="green", opacity=0.05)
-    fig.update_layout(title="偏股基金3年滚动年化收益", yaxis_title="年化收益率(%)", height=400)
-    st.plotly_chart(fig, use_container_width=True)
-
-    current_val = rolling_3y[-1]
-    if current_val > 30:
-        st.error(f"当前: {current_val:.1f}% - 泡沫区域，警惕回调")
-    elif current_val < -10:
-        st.success(f"当前: {current_val:.1f}% - 底部区域，建议逢低布局")
+            # 当前位置分析
+            pe_vals = sel_df["pe"].dropna()
+            if len(pe_vals) > 1:
+                current_pe = pe_vals.iloc[-1]
+                pct = (pe_vals < current_pe).sum() / len(pe_vals) * 100
+                st.info(f"当前 PE = {current_pe:.2f}，历史百分位 = {pct:.1f}%（基于 {len(pe_vals)} 个数据点）")
     else:
-        st.info(f"当前: {current_val:.1f}%")
+        st.info("无可用数据")
