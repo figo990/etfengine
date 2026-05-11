@@ -12,7 +12,7 @@ database:
 
 data_source:
   primary: "akshare"
-  fallback: "baostock"
+  fallback: "akshare"  # 当前仅实现 akshare provider
   retry:
     max_attempts: 3
     wait_seconds: 5

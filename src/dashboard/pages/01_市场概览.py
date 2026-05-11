@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
 from datetime import date, timedelta
+from loguru import logger
 
 st.title("📊 市场概览")
 
@@ -48,8 +49,8 @@ try:
                     "PE百分位(%)": f"{float(pe_pct):.1f}" if pe_pct and not pd.isna(pe_pct) else "--",
                     "股息率(%)": f"{float(div_y):.2f}" if div_y and not pd.isna(div_y) else "--",
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"加载 {idx_name} 估值失败: {e}")
 
     if valuation_rows:
         val_df = pd.DataFrame(valuation_rows)

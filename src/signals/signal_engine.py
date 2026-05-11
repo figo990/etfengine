@@ -3,19 +3,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
 
-import pandas as pd
 from loguru import logger
 
-from src.core.config import get_strategy_config, get_etf_universe
+from src.core.config import get_strategy_config
 from src.data.models import TradeSignal
 from src.data.storage import StorageEngine
-from src.data.fetcher import DataFetcher
 from src.analysis.valuation import ValuationAnalyzer
 from src.analysis.fed_model import FEDModelAnalyzer
-from src.strategies.dca.simple_dca import SimpleDCAStrategy
-from src.strategies.dca.valuation_dca import ValuationDCAStrategy
 from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 from src.intelligence.news_monitor import NewsMonitor
 from src.intelligence.sector_tracker import SectorTracker
@@ -238,4 +233,37 @@ class SignalEngine:
 
     def get_latest_signals(self, strategy_name: str | None = None) -> list[TradeSignal]:
         """获取最近生成的信号（从数据库读取）"""
-        return []
+        try:
+            conn = self.storage.conn
+            query = "SELECT * FROM trade_signals ORDER BY signal_date DESC LIMIT 50"
+            if strategy_name:
+                query = (
+                    "SELECT * FROM trade_signals WHERE strategy_name = ? "
+                    "ORDER BY signal_date DESC LIMIT 50"
+                )
+                df = conn.execute(query, [strategy_name]).fetchdf()
+            else:
+                df = conn.execute(query).fetchdf()
+
+            if df.empty:
+                return []
+
+            signals = []
+            for _, row in df.iterrows():
+                try:
+                    signals.append(TradeSignal(
+                        strategy_name=row.get("strategy_name", ""),
+                        etf_code=row.get("etf_code", ""),
+                        signal_date=row.get("signal_date", date.today()),
+                        direction=TradeSignal.Direction(row.get("direction", "buy")),
+                        amount=row.get("amount"),
+                        reason=row.get("reason", ""),
+                        confidence=row.get("confidence"),
+                        generated_at=row.get("generated_at", datetime.now()),
+                    ))
+                except Exception:
+                    continue
+            return signals
+        except Exception as e:
+            logger.debug(f"读取历史信号失败（表可能不存在）: {e}")
+            return []
