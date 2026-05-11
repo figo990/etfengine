@@ -13,6 +13,23 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 st.title("🧠 智能资讯中心")
+
+with st.expander("💡 使用说明", expanded=False):
+    st.markdown("""
+    **智能资讯中心**整合行业新闻分析、政策追踪和基本面数据。
+
+    - **行业情绪热力图**：统计各行业新闻的情绪倾向
+    - **重大新闻流**：展示全部/政策/高影响新闻，带情绪评分
+    - **行业政策追踪**：识别重要政策新闻，评估对各行业的影响
+    - **指数基本面**：PE/ROE 走势和多指数对比
+
+    ⚠️ **数据获取**：新闻数据需要运行调度器采集。终端执行：
+    ```
+    python -m src.scheduler.runner
+    ```
+    或配置 DeepSeek API Key 后启用 LLM 智能分析。
+    """)
+
 st.divider()
 
 
@@ -28,6 +45,11 @@ def _load_news_from_db() -> pd.DataFrame:
         import logging
         logging.getLogger(__name__).debug(f"加载新闻数据失败（降级为示例）: {e}")
     return pd.DataFrame()
+
+
+def _get_storage_for_fund():
+    from src.data.storage import StorageEngine
+    return StorageEngine()
 
 
 def _load_fundamental_snapshot() -> pd.DataFrame:
@@ -107,8 +129,8 @@ if not db_news.empty:
     news_df = _db_to_display(db_news)
     data_source_label = "实时数据"
 else:
-    news_df = pd.DataFrame(_get_mock_news())
-    data_source_label = "示例数据"
+    news_df = pd.DataFrame()
+    data_source_label = "暂无数据（请先运行新闻采集任务）"
 
 st.caption(f"数据来源: {data_source_label}")
 
@@ -132,12 +154,11 @@ if not news_df.empty:
         })
     heatmap_data = pd.DataFrame(sector_stats)
 else:
-    np.random.seed(42)
     heatmap_data = pd.DataFrame({
         "行业": SECTORS,
-        "新闻数量": np.random.randint(5, 50, size=len(SECTORS)),
-        "平均情绪": np.round(np.random.uniform(-0.5, 0.8, size=len(SECTORS)), 3),
-        "重大影响": np.random.randint(0, 5, size=len(SECTORS)),
+        "新闻数量": [0] * len(SECTORS),
+        "平均情绪": [0.0] * len(SECTORS),
+        "重大影响": [0] * len(SECTORS),
     })
 
 col_h1, col_h2 = st.columns([2, 3])
@@ -195,10 +216,16 @@ with tab_all:
     _render_news_table(news_df)
 
 with tab_policy:
-    _render_news_table(news_df[news_df["政策"] == True])  # noqa: E712
+    if not news_df.empty and "政策" in news_df.columns:
+        _render_news_table(news_df[news_df["政策"] == True])  # noqa: E712
+    else:
+        st.info("暂无政策动态")
 
 with tab_high:
-    _render_news_table(news_df[news_df["影响"] == "high"])
+    if not news_df.empty and "影响" in news_df.columns:
+        _render_news_table(news_df[news_df["影响"] == "high"])
+    else:
+        st.info("暂无高影响新闻")
 
 st.divider()
 
@@ -248,20 +275,7 @@ if policy_summary is not None and not policy_summary.empty:
         hide_index=True,
     )
 else:
-    fallback_policy = pd.DataFrame({
-        "行业": ["消费", "医药", "金融", "半导体", "新能源"],
-        "政策条数": [3, 2, 2, 1, 1],
-        "平均情绪": [0.65, -0.15, 0.45, 0.30, 0.20],
-        "方向": ["利多", "中性偏空", "利多", "利多", "中性偏多"],
-        "核心政策": ["促消费二十条", "DRG支付改革", "MLF降息10bp", "芯片自主可控政策", "光伏反补贴终裁"],
-    })
-    st.dataframe(
-        fallback_policy.style.background_gradient(
-            subset=["平均情绪"], cmap="RdYlGn", vmin=-1, vmax=1,
-        ),
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.info("暂无政策追踪数据，请先运行新闻采集任务")
 
 st.divider()
 
@@ -291,34 +305,42 @@ if not fund_from_db.empty and "pe" in fund_from_db.columns:
     else:
         fund_df["ROE(推算)"] = fund_df["pb"] / fund_df["pe"]
 else:
-    dates = pd.date_range(end=date.today(), periods=60, freq="W")
-    np.random.seed(hash(selected_idx) % 100)
-    fund_df = pd.DataFrame({
-        "日期": dates,
-        "PE": np.cumsum(np.random.randn(60) * 0.3) + 15,
-        "PB": np.cumsum(np.random.randn(60) * 0.05) + 1.5,
-        "ROE(推算)": np.cumsum(np.random.randn(60) * 0.2) + 12,
-    })
+    try:
+        storage = _get_storage_for_fund()
+        val_df = storage.get_index_valuation(selected_idx)
+        if not val_df.empty and "pe" in val_df.columns:
+            fund_df = val_df.copy()
+            fund_df["日期"] = pd.to_datetime(fund_df["trade_date"])
+            fund_df["PE"] = fund_df["pe"]
+            fund_df["PB"] = fund_df["pb"]
+            fund_df["ROE(推算)"] = fund_df.apply(
+                lambda r: r["pb"] / r["pe"] * 100 if r.get("pe") and r["pe"] > 0 else 0, axis=1)
+        else:
+            fund_df = pd.DataFrame()
+    except Exception:
+        fund_df = pd.DataFrame()
 
-col_f1, col_f2 = st.columns(2)
+if not fund_df.empty and "日期" in fund_df.columns and "PE" in fund_df.columns:
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        fig_pe = go.Figure()
+        fig_pe.add_trace(go.Scatter(
+            x=fund_df["日期"], y=fund_df["PE"],
+            mode="lines", name="PE", line=dict(color="#1f77b4"),
+        ))
+        fig_pe.update_layout(title=f"{selected_idx} PE 走势", height=300)
+        st.plotly_chart(fig_pe, use_container_width=True)
 
-with col_f1:
-    fig_pe = go.Figure()
-    fig_pe.add_trace(go.Scatter(
-        x=fund_df["日期"], y=fund_df["PE"],
-        mode="lines", name="PE", line=dict(color="#1f77b4"),
-    ))
-    fig_pe.update_layout(title=f"{selected_idx} PE 走势", height=300)
-    st.plotly_chart(fig_pe, use_container_width=True)
-
-with col_f2:
-    fig_roe = go.Figure()
-    fig_roe.add_trace(go.Scatter(
-        x=fund_df["日期"], y=fund_df["ROE(推算)"],
-        mode="lines", name="ROE", line=dict(color="#2ca02c"),
-    ))
-    fig_roe.update_layout(title=f"{selected_idx} ROE 推算走势", height=300)
-    st.plotly_chart(fig_roe, use_container_width=True)
+    with col_f2:
+        fig_roe = go.Figure()
+        fig_roe.add_trace(go.Scatter(
+            x=fund_df["日期"], y=fund_df["ROE(推算)"],
+            mode="lines", name="ROE", line=dict(color="#2ca02c"),
+        ))
+        fig_roe.update_layout(title=f"{selected_idx} ROE 推算走势", height=300)
+        st.plotly_chart(fig_roe, use_container_width=True)
+else:
+    st.info(f"暂无 {selected_idx} 的基本面趋势数据")
 
 # 基本面快照对比
 st.markdown("#### 多指数基本面对比")
@@ -334,15 +356,28 @@ if not compare_live.empty:
     compare_display = compare_live[available].rename(columns=display_cols)
     st.dataframe(compare_display, use_container_width=True, hide_index=True)
 else:
-    compare_df = pd.DataFrame({
-        "指数": ["沪深300", "中证500", "创业板指", "中证红利", "上证50"],
-        "PE": [12.5, 22.1, 30.5, 6.8, 10.2],
-        "PB": [1.3, 1.8, 3.2, 0.7, 1.1],
-        "股息率": ["3.0%", "1.5%", "0.6%", "5.2%", "3.8%"],
-        "ROE趋势": ["平稳", "改善", "恶化", "平稳", "改善"],
-        "PE年变化": ["-5.2%", "+3.1%", "-12.3%", "+1.8%", "-3.5%"],
-    })
-    st.dataframe(compare_df, use_container_width=True, hide_index=True)
+    try:
+        storage_cmp = _get_storage_for_fund()
+        cmp_rows = []
+        for idx_name in ["沪深300", "中证500", "创业板指", "中证红利", "上证50"]:
+            val = storage_cmp.get_index_valuation(idx_name)
+            if not val.empty:
+                latest = val.iloc[-1]
+                pe = latest.get("pe")
+                pb = latest.get("pb")
+                dy = latest.get("dividend_yield")
+                cmp_rows.append({
+                    "指数": idx_name,
+                    "PE": f"{pe:.2f}" if pe else "--",
+                    "PB": f"{pb:.2f}" if pb else "--",
+                    "股息率": f"{dy:.2f}%" if dy else "--",
+                })
+        if cmp_rows:
+            st.dataframe(pd.DataFrame(cmp_rows), use_container_width=True, hide_index=True)
+        else:
+            st.info("暂无指数估值数据")
+    except Exception:
+        st.info("暂无指数估值数据")
 
 st.divider()
 
@@ -362,8 +397,7 @@ with col_w1:
         if improving.empty:
             st.info("暂无 ROE 改善信号")
     else:
-        st.success("中证500: ROE 连续改善，PE 百分位 55%")
-        st.success("上证50: 股息率提升至 3.8%")
+        st.info("暂无基本面改善信号数据")
 
 with col_w2:
     st.markdown("**新闻情绪极端**")
@@ -378,12 +412,11 @@ with col_w2:
                 elif avg > 0.5:
                     st.success(f"{sector}: 情绪显著转多，平均情绪 {avg:+.2f}")
     else:
-        st.error("医药: 近期政策偏空，连续3条负面新闻")
-        st.success("消费: 促消费政策密集出台，情绪显著转多")
+        st.info("暂无新闻情绪预警")
 
 with col_w3:
     st.markdown("**政策重大变化**")
-    if not news_df.empty:
+    if not news_df.empty and "政策" in news_df.columns and "影响" in news_df.columns:
         policy_news = news_df[(news_df["政策"] == True) & (news_df["影响"] == "high")]  # noqa: E712
         for _, r in policy_news.head(3).iterrows():
             if r["情绪"] > 0.3:
@@ -393,8 +426,7 @@ with col_w3:
             else:
                 st.warning(f"{r['行业']}: {r['标题'][:20]}...")
     else:
-        st.warning("金融: MLF降息，关注后续LPR调整")
-        st.info("半导体: 自主可控政策持续加码")
+        st.info("暂无政策变化预警")
 
-if data_source_label == "示例数据":
-    st.caption("* 当前展示为示例数据，接入实时数据后将自动更新")
+if news_df.empty:
+    st.caption("* 当前暂无新闻数据，请运行 `python -m src.scheduler.runner` 或手动调用新闻采集")

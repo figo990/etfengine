@@ -10,6 +10,17 @@ from datetime import date, timedelta
 
 st.title("📊 市场概览")
 
+with st.expander("💡 使用说明", expanded=False):
+    st.markdown("""
+    **市场概览**展示主要宽基指数的最新估值快照，帮助你快速判断市场整体冷热。
+
+    - **PE百分位**：当前市盈率在历史中的位置，越低越便宜（<30% 低估，>70% 高估）
+    - **股息率**：越高说明分红越多，通常对应低估
+    - **市场温度计**：综合所有指数估值，给出冷/中/热判断
+
+    📊 **数据来源**：DuckDB 本地数据库（AkShare 抓取）
+    """)
+
 try:
     from src.data.storage import StorageEngine
 

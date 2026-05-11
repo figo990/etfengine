@@ -11,6 +11,18 @@ import numpy as np
 from datetime import date
 
 st.title("📋 组合管理")
+
+with st.expander("💡 使用说明", expanded=False):
+    st.markdown("""
+    **组合管理**展示你的 ETF 持仓组合状态，并提供再平衡分析。
+
+    - **持仓概览**：展示各 ETF 目标权重、最新价格、资金分配饼图
+    - **再平衡分析**：输入当前实际市值，计算偏离度，给出调仓建议
+    - **风险监控**：展示风控参数（回撤预警/仓位限制），以及近 60 日收益率对比图
+
+    📌 持仓配置来自 `config/portfolio.yaml`，可在「持仓设置」页面修改
+    """)
+
 st.divider()
 
 

@@ -12,6 +12,24 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 st.title("🧪 策略回测")
+
+with st.expander("💡 使用说明", expanded=False):
+    st.markdown("""
+    **策略回测**用真实历史行情验证不同投资策略的表现。
+
+    **支持的策略**：
+    - 普通定投 / 估值定投 / 均线偏离定投
+    - 等差网格 / 等比网格
+    - 大小盘动量轮动 / 股债轮动
+
+    **操作步骤**：
+    1. 左侧选择策略类型和 ETF 代码
+    2. 设置回测时间范围和参数
+    3. 点击「运行回测」查看收益曲线和绩效指标
+
+    📊 回测指标包括：总收益率、年化收益、最大回撤、夏普比率等
+    """)
+
 st.divider()
 
 STRATEGY_MAP = {

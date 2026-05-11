@@ -7,6 +7,11 @@ st.set_page_config(
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={
+        "Get Help": None,
+        "Report a bug": None,
+        "About": "### ETFEngine v0.1.0\nETF 投资策略管理工具\n\n仅供研究，不构成投资建议",
+    },
 )
 
 from src.dashboard.styles import inject_global_styles
@@ -28,15 +33,23 @@ st.sidebar.caption("v0.1.0 · 仅供研究，不构成投资建议")
 # --- 加载真实数据 ---
 _metrics = {}
 try:
+    import pandas as _pd
     from src.data.storage import StorageEngine
     _storage = StorageEngine()
     for _idx in ["沪深300", "中证500", "创业板指", "中证红利"]:
         _df = _storage.get_index_valuation(_idx)
         if not _df.empty:
             _latest = _df.iloc[-1]
+            _pe_pct = _latest.get("pe_percentile")
+            _div_y = _latest.get("dividend_yield")
+
+            if _pd.isna(_pe_pct) and not _pd.isna(_latest.get("pe")):
+                _all_pe = _df["pe"].dropna()
+                _pe_pct = (_all_pe < _latest["pe"]).sum() / len(_all_pe) * 100 if len(_all_pe) > 1 else None
+
             _metrics[_idx] = {
-                "pe_pct": round(float(_latest.get("pe_percentile", 0)), 1),
-                "div_yield": round(float(_latest.get("dividend_yield", 0)), 2),
+                "pe_pct": round(float(_pe_pct), 1) if _pe_pct and not _pd.isna(_pe_pct) else None,
+                "div_yield": round(float(_div_y), 2) if _div_y and not _pd.isna(_div_y) else None,
             }
 except Exception:
     pass
@@ -57,18 +70,25 @@ st.markdown(
 st.divider()
 
 col1, col2, col3, col4 = st.columns(4)
+
+
+def _fmt_pct(val):
+    if val == "--" or val is None:
+        return "--"
+    import math
+    if isinstance(val, float) and (math.isnan(val) or val == 0):
+        return "--"
+    return f"{val}%"
+
+
 with col1:
-    v = _metrics.get("沪深300", {}).get("pe_pct", "--")
-    st.metric("沪深300 PE百分位", f"{v}%" if v != "--" else "--")
+    st.metric("沪深300 PE百分位", _fmt_pct(_metrics.get("沪深300", {}).get("pe_pct", "--")))
 with col2:
-    v = _metrics.get("中证500", {}).get("pe_pct", "--")
-    st.metric("中证500 PE百分位", f"{v}%" if v != "--" else "--")
+    st.metric("中证500 PE百分位", _fmt_pct(_metrics.get("中证500", {}).get("pe_pct", "--")))
 with col3:
-    v = _metrics.get("中证红利", {}).get("div_yield", "--")
-    st.metric("中证红利 股息率", f"{v}%" if v != "--" else "--")
+    st.metric("中证红利 股息率", _fmt_pct(_metrics.get("中证红利", {}).get("div_yield", "--")))
 with col4:
-    v = _metrics.get("创业板指", {}).get("pe_pct", "--")
-    st.metric("创业板 PE百分位", f"{v}%" if v != "--" else "--")
+    st.metric("创业板 PE百分位", _fmt_pct(_metrics.get("创业板指", {}).get("pe_pct", "--")))
 
 st.divider()
 

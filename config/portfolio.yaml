@@ -1,23 +1,38 @@
 portfolio:
-  name: "默认ETF组合"
+  name: "我的ETF组合"
   total_capital: 100000           # 总资金(元)
 
   holdings:
-    - etf: "510300"
-      name: "沪深300ETF"
-      target_weight: 0.30
-    - etf: "512100"
-      name: "中证1000ETF"
-      target_weight: 0.20
-    - etf: "515080"
-      name: "中证红利ETF"
-      target_weight: 0.20
-    - etf: "513100"
-      name: "纳指100ETF"
-      target_weight: 0.15
-    - etf: "518880"
-      name: "黄金ETF"
-      target_weight: 0.15
+    - etf: "159915"
+      name: "创业板ETF易方达"
+      target_weight: 0.10
+    - etf: "588200"
+      name: "科创芯片ETF嘉实"
+      target_weight: 0.10
+    - etf: "562500"
+      name: "机器人ETF华夏"
+      target_weight: 0.10
+    - etf: "515980"
+      name: "人工智能ETF华富"
+      target_weight: 0.10
+    - etf: "159819"
+      name: "人工智能ETF易方"
+      target_weight: 0.10
+    - etf: "563230"
+      name: "卫星ETF富国"
+      target_weight: 0.10
+    - etf: "159326"
+      name: "电网设备ETF华夏"
+      target_weight: 0.10
+    - etf: "159608"
+      name: "稀有金属ETF广发"
+      target_weight: 0.10
+    - etf: "513310"
+      name: "中韩半导体ETF华"
+      target_weight: 0.10
+    - etf: "159206"
+      name: "卫星ETF永赢"
+      target_weight: 0.10
 
   rebalance:
     trigger: "drift"              # drift | periodic | both

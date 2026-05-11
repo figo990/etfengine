@@ -9,14 +9,17 @@ build/
 
 # Virtual environments
 .venv/
+.venv2/
 venv/
 env/
+.python-version
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.tmp
 
 # Data files
 data/db/*.duckdb
@@ -30,10 +33,12 @@ data/reports/*
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Environment variables
 .env
 .env.local
+.env.production
 
 # Jupyter
 .ipynb_checkpoints/
@@ -51,3 +56,7 @@ coverage.xml
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Cursor agent artifacts
+.cursor/
+agent-transcripts/

@@ -11,6 +11,21 @@ import numpy as np
 from datetime import date
 
 st.title("📈 估值看板")
+
+with st.expander("💡 使用说明", expanded=False):
+    st.markdown("""
+    **估值看板**是深度估值分析工具，包含三个维度：
+
+    1. **PE/PB 百分位**：各指数当前估值在历史中的位置
+    2. **股债性价比 (FED模型)**：对比股票盈利收益率与国债利率
+       - ERP > 4%：股市极度有吸引力
+       - ERP 2~4%：偏股配置
+       - ERP < 0%：偏债配置
+    3. **估值历史走势**：查看单个指数 PE 的长期变化趋势
+
+    📊 数据基于 AkShare 抓取的指数估值和国债收益率
+    """)
+
 st.divider()
 
 # --- 加载真实数据 ---
