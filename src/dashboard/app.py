@@ -51,8 +51,9 @@ try:
                 "pe_pct": round(float(_pe_pct), 1) if _pe_pct and not _pd.isna(_pe_pct) else None,
                 "div_yield": round(float(_div_y), 2) if _div_y and not _pd.isna(_div_y) else None,
             }
-except Exception:
-    pass
+except Exception as e:
+    import logging
+    logging.getLogger(__name__).debug(f"首页数据加载失败: {e}")
 
 # --- 主页内容 ---
 st.markdown(

@@ -352,10 +352,23 @@ class StorageEngine:
         query += " ORDER BY trade_date"
         return self.conn.execute(query, params).fetchdf()
 
+    _ALLOWED_TABLES = {"etf_daily", "index_valuation", "bond_yield", "fundamental_data"}
+    _ALLOWED_COLUMNS = {"code", "index_name", "1"}
+
     def get_latest_date(self, table: str, code_column: str, code_value: str) -> str | None:
         """获取某表某条目的最新日期，用于增量更新"""
-        query = f"SELECT MAX(trade_date) FROM {table} WHERE {code_column} = ?"
-        result = self.conn.execute(query, [code_value]).fetchone()
+        if table not in self._ALLOWED_TABLES:
+            raise ValueError(f"不允许的表名: {table}")
+        if code_column not in self._ALLOWED_COLUMNS:
+            raise ValueError(f"不允许的列名: {code_column}")
+
+        if code_column == "1":
+            query = f"SELECT MAX(trade_date) FROM {table}"
+            result = self.conn.execute(query).fetchone()
+        else:
+            query = f"SELECT MAX(trade_date) FROM {table} WHERE {code_column} = ?"
+            result = self.conn.execute(query, [code_value]).fetchone()
+
         if result and result[0]:
             return str(result[0])
         return None

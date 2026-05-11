@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import numpy as np
+from loguru import logger
 from datetime import date
 
 st.title("📈 估值看板")
@@ -58,7 +59,8 @@ try:
     valuation_data = _load_valuation_data()
     bond_data = _load_bond_data()
     has_data = bool(valuation_data)
-except Exception:
+except Exception as e:
+    logger.warning(f"加载估值/国债数据失败: {e}")
     valuation_data = {}
     bond_data = pd.DataFrame()
     has_data = False

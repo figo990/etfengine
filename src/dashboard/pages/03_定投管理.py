@@ -41,7 +41,8 @@ def _load_portfolio_etfs() -> list[dict]:
         from src.core.config import get_portfolio_config
         cfg = get_portfolio_config()
         return cfg.get("portfolio", {}).get("holdings", [])
-    except Exception:
+    except Exception as e:
+        logger.warning(f"加载组合配置失败: {e}")
         return []
 
 

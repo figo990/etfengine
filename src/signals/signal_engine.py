@@ -21,11 +21,13 @@ class SignalEngine:
 
     def __init__(self) -> None:
         self.storage = StorageEngine()
-        self.fetcher = DataFetcher()
         self.valuation_analyzer = ValuationAnalyzer()
         self.fed_analyzer = FEDModelAnalyzer()
         self._news_monitor: NewsMonitor | None = None
         self._sector_tracker: SectorTracker | None = None
+
+    def close(self) -> None:
+        self.storage.close()
 
     def generate_daily_signals(self, target_date: date | None = None) -> list[TradeSignal]:
         """生成当日所有策略信号"""
@@ -58,8 +60,42 @@ class SignalEngine:
                 f"{sig.direction.value} | {sig.amount} | {sig.reason}"
             )
 
+        if signals:
+            self._persist_signals(signals)
+
         logger.bind(signal=True).info(f"共生成 {len(signals)} 条信号")
         return signals
+
+    def _persist_signals(self, signals: list[TradeSignal]) -> None:
+        """将信号写入数据库"""
+        import pandas as pd
+
+        rows = []
+        for sig in signals:
+            rows.append({
+                "strategy_name": sig.strategy_name,
+                "etf_code": sig.etf_code,
+                "signal_date": sig.signal_date,
+                "direction": sig.direction.value,
+                "amount": sig.amount,
+                "reason": sig.reason,
+                "confidence": sig.confidence,
+                "generated_at": sig.generated_at,
+            })
+
+        df = pd.DataFrame(rows)
+        try:
+            self.storage.conn.execute("""
+                INSERT OR REPLACE INTO trade_signals (
+                    strategy_name, etf_code, signal_date, direction,
+                    amount, reason, confidence, generated_at
+                ) SELECT strategy_name, etf_code, signal_date, direction,
+                         amount, reason, confidence, generated_at
+                FROM df
+            """)
+            logger.debug(f"已持久化 {len(signals)} 条信号到数据库")
+        except Exception as e:
+            logger.warning(f"信号持久化失败: {e}")
 
     def _generate_dca_signals(self, target_date: date) -> list[TradeSignal]:
         """生成定投信号"""
@@ -158,7 +194,8 @@ class SignalEngine:
 
         try:
             analyzed = self._news_monitor.run_cycle(use_llm=True)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"LLM 新闻分析失败，降级为关键词模式: {e}")
             analyzed = self._news_monitor.run_cycle(use_llm=False)
 
         if not analyzed:
@@ -261,7 +298,8 @@ class SignalEngine:
                         confidence=row.get("confidence"),
                         generated_at=row.get("generated_at", datetime.now()),
                     ))
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"解析信号记录失败: {e}")
                     continue
             return signals
         except Exception as e:

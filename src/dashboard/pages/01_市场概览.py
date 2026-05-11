@@ -58,7 +58,8 @@ try:
     else:
         raise ValueError("无数据")
 
-except Exception:
+except Exception as e:
+    logger.warning(f"加载估值数据失败: {e}")
     val_df = pd.DataFrame()
     data_source = "无数据"
 

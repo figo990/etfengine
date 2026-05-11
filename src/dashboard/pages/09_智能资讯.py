@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from loguru import logger
 
 st.title("🧠 智能资讯中心")
 
@@ -59,43 +60,10 @@ def _load_fundamental_snapshot() -> pd.DataFrame:
         analyzer = FundamentalAnalyzer()
         indices = ["沪深300", "中证500", "创业板指", "中证红利", "上证50"]
         return analyzer.compare_fundamentals(indices)
-    except Exception:
+    except Exception as e:
+        logger.debug(f"基本面数据加载失败: {e}")
         return pd.DataFrame()
 
-
-def _get_mock_news() -> list[dict]:
-    return [
-        {
-            "时间": "2025-05-10 15:30", "标题": "国务院发布促消费二十条措施",
-            "摘要": "涵盖汽车、家电、餐饮等多领域，鼓励以旧换新",
-            "情绪": 0.8, "影响": "high", "行业": "消费", "来源": "cctv", "政策": True,
-        },
-        {
-            "时间": "2025-05-10 14:20", "标题": "医保局推进DRG/DIP支付改革",
-            "摘要": "全面推行按病种付费，对创新药企影响有限",
-            "情绪": -0.3, "影响": "medium", "行业": "医药", "来源": "eastmoney", "政策": True,
-        },
-        {
-            "时间": "2025-05-10 11:00", "标题": "华为发布新一代AI芯片",
-            "摘要": "算力提升50%，国产替代加速",
-            "情绪": 0.7, "影响": "high", "行业": "半导体", "来源": "cls", "政策": False,
-        },
-        {
-            "时间": "2025-05-10 10:15", "标题": "欧洲光伏反补贴调查终裁落地",
-            "摘要": "税率低于预期，市场情绪修复",
-            "情绪": 0.4, "影响": "medium", "行业": "新能源", "来源": "eastmoney", "政策": False,
-        },
-        {
-            "时间": "2025-05-09 20:30", "标题": "央行下调MLF利率10个基点",
-            "摘要": "宽松信号明确，利好权益资产",
-            "情绪": 0.6, "影响": "high", "行业": "金融", "来源": "cctv", "政策": True,
-        },
-        {
-            "时间": "2025-05-09 16:00", "标题": "某军工集团获大额海外订单",
-            "摘要": "合同金额超百亿，军贸出口放量",
-            "情绪": 0.5, "影响": "medium", "行业": "军工", "来源": "cls", "政策": False,
-        },
-    ]
 
 
 def _db_to_display(db_df: pd.DataFrame) -> pd.DataFrame:
@@ -263,7 +231,8 @@ try:
             policy_summary = None
     else:
         policy_summary = None
-except Exception:
+except Exception as e:
+    logger.debug(f"政策摘要生成失败: {e}")
     policy_summary = None
 
 if policy_summary is not None and not policy_summary.empty:
@@ -292,7 +261,8 @@ try:
     from src.data.storage import StorageEngine
     storage = StorageEngine()
     fund_from_db = storage.get_fundamental_data(selected_idx)
-except Exception:
+except Exception as e:
+    logger.debug(f"基本面数据库查询失败: {e}")
     fund_from_db = pd.DataFrame()
 
 if not fund_from_db.empty and "pe" in fund_from_db.columns:
@@ -317,7 +287,8 @@ else:
                 lambda r: r["pb"] / r["pe"] * 100 if r.get("pe") and r["pe"] > 0 else 0, axis=1)
         else:
             fund_df = pd.DataFrame()
-    except Exception:
+    except Exception as e:
+        logger.debug(f"基本面 DataFrame 处理失败: {e}")
         fund_df = pd.DataFrame()
 
 if not fund_df.empty and "日期" in fund_df.columns and "PE" in fund_df.columns:
@@ -376,7 +347,8 @@ else:
             st.dataframe(pd.DataFrame(cmp_rows), use_container_width=True, hide_index=True)
         else:
             st.info("暂无指数估值数据")
-    except Exception:
+    except Exception as e:
+        logger.debug(f"指数估值对比失败: {e}")
         st.info("暂无指数估值数据")
 
 st.divider()

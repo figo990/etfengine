@@ -22,5 +22,6 @@ def inject_global_styles() -> None:
     try:
         from src.dashboard.data_refresh import render_refresh_sidebar
         render_refresh_sidebar()
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).debug(f"侧栏数据面板加载跳过: {e}")

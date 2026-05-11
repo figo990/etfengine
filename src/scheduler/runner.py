@@ -59,8 +59,11 @@ def daily_signal_generation() -> None:
     logger.info("执行每日信号生成...")
     from src.signals.signal_engine import SignalEngine
     engine = SignalEngine()
-    signals = engine.generate_daily_signals()
-    logger.info(f"生成 {len(signals)} 条信号")
+    try:
+        signals = engine.generate_daily_signals()
+        logger.info(f"生成 {len(signals)} 条信号")
+    finally:
+        engine.close()
 
 
 def news_monitor_update() -> None:
@@ -73,16 +76,19 @@ def news_monitor_update() -> None:
     storage = StorageEngine()
 
     try:
-        analyzed = monitor.run_cycle(use_llm=True)
-    except Exception:
-        logger.warning("LLM 分析不可用，使用关键词回退模式")
-        analyzed = monitor.run_cycle(use_llm=False)
+        try:
+            analyzed = monitor.run_cycle(use_llm=True)
+        except Exception as e:
+            logger.warning(f"LLM 分析不可用({e})，使用关键词回退模式")
+            analyzed = monitor.run_cycle(use_llm=False)
 
-    if analyzed:
-        count = storage.upsert_news_articles(analyzed)
-        logger.info(f"新闻监控完成，存储 {count} 条")
-    else:
-        logger.info("本轮无新增新闻")
+        if analyzed:
+            count = storage.upsert_news_articles(analyzed)
+            logger.info(f"新闻监控完成，存储 {count} 条")
+        else:
+            logger.info("本轮无新增新闻")
+    finally:
+        storage.close()
 
 
 if __name__ == "__main__":

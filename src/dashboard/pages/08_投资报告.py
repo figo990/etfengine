@@ -56,7 +56,8 @@ def _generate_report(report_type: str, report_date: date) -> str:
                 lines.append(f"| {idx_name} | {pe} | {pe_pct} | {pb} | {dy} |")
             else:
                 lines.append(f"| {idx_name} | -- | -- | -- | -- |")
-        except Exception:
+        except Exception as e:
+            logger.debug(f"报告: {idx_name} 估值获取失败: {e}")
             lines.append(f"| {idx_name} | -- | -- | -- | -- |")
 
     # 股债性价比
@@ -81,7 +82,8 @@ def _generate_report(report_type: str, report_date: date) -> str:
                     lines.append(f"- **判断: 股债中性，维持均衡**")
                 else:
                     lines.append(f"- **判断: 股市偏贵，注意风险**")
-    except Exception:
+    except Exception as e:
+        logger.debug(f"报告: 股债数据加载失败: {e}")
         lines.append("- 股债数据暂不可用")
 
     # 组合持仓
@@ -97,7 +99,8 @@ def _generate_report(report_type: str, report_date: date) -> str:
             df_etf = storage.get_etf_daily(h["etf"])
             latest_price = f"{df_etf['close'].iloc[-1]:.3f}" if not df_etf.empty else "--"
             lines.append(f"| {h['etf']} | {h['name']} | {h['target_weight']*100:.0f}% | {latest_price} |")
-    except Exception:
+    except Exception as e:
+        logger.debug(f"报告: 持仓数据加载失败: {e}")
         lines.append("- 持仓数据暂不可用")
 
     lines.append("")
