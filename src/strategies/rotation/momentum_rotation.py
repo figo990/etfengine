@@ -59,7 +59,7 @@ class MomentumRotationStrategy(BaseStrategy):
         current_date: date,
         price_data: pd.DataFrame,
         **context: Any,
-    ) -> TradeOrder | None:
+    ) -> TradeOrder | list[TradeOrder] | None:
         """需要 context 中传入 large_prices 和 small_prices"""
         large_prices: pd.Series | None = context.get("large_prices")
         small_prices: pd.Series | None = context.get("small_prices")
@@ -81,7 +81,6 @@ class MomentumRotationStrategy(BaseStrategy):
         if target == self._current_holding:
             return None
 
-        # 需要轮动
         current_price = price_data["close"].iloc[-1]
         amount = context.get("position_value", 10000.0)
 
@@ -108,4 +107,4 @@ class MomentumRotationStrategy(BaseStrategy):
             reason=f"轮动买入{target_name}: ROC大盘={roc_large:.1f}% ROC小盘={roc_small:.1f}%",
         ))
 
-        return orders[-1]
+        return orders if len(orders) > 1 else orders[0]

@@ -56,7 +56,7 @@ class BaseStrategy(ABC):
         current_date: date,
         price_data: pd.DataFrame,
         **context: Any,
-    ) -> TradeOrder | None:
+    ) -> TradeOrder | list[TradeOrder] | None:
         """生成交易信号
 
         Args:

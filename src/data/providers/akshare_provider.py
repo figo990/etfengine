@@ -122,18 +122,16 @@ class AkShareProvider(BaseDataProvider):
         try:
             df = ak.stock_zh_index_value_csindex(symbol=index_code)
             cols = df.columns.tolist()
-            # csindex 返回固定格式: 日期(0), 代码(1), 中文全称(2), 简称(3),
-            # 英文全称(4), 英文简称(5), 市盈率1(6), 市盈率2(7), 股息率1(8), 股息率2(9)
-            if len(cols) >= 9:
-                df = df.rename(columns={
-                    cols[0]: "trade_date",
-                    cols[6]: "pe",
-                    cols[8]: "dividend_yield",
-                })
-            else:
-                df = df.rename(columns={cols[0]: "trade_date"})
-                if len(cols) > 6:
-                    df = df.rename(columns={cols[6]: "pe"})
+            # csindex 返回: 日期(0), 代码(1), 全称(2), 简称(3),
+            # 英文全称(4), 英文简称(5), PE1(6), PE2(7), 股息率1(8), 股息率2(9), PB(10+)
+            rename_map = {cols[0]: "trade_date"}
+            if len(cols) > 6:
+                rename_map[cols[6]] = "pe"
+            if len(cols) > 8:
+                rename_map[cols[8]] = "dividend_yield"
+            if len(cols) > 10:
+                rename_map[cols[10]] = "pb"
+            df = df.rename(columns=rename_map)
         except Exception as e:
             logger.warning(f"csindex 接口失败: {e}, 尝试 funddb 接口")
             df = ak.index_value_name_funddb(symbol=index_name)
@@ -168,7 +166,9 @@ class AkShareProvider(BaseDataProvider):
 
         df_cn = ak.bond_zh_us_rate(start_date="2010-01-01")
         cols = df_cn.columns.tolist()
-        # 固定位置: 0=日期, 1=中国2年, 2=中国5年, 3=中国10年, 9=美国10年
+        # bond_zh_us_rate 列: 0=日期, 1=中国国债收益率2年, 2=中国国债收益率5年,
+        # 3=中国国债收益率10年, ..., 9=美国国债收益率10年
+        # 字段映射: cn_1y 存储短期(2年), cn_5y 存储5年, cn_10y 存储10年
         rename_map = {cols[0]: "trade_date"}
         if len(cols) > 3:
             rename_map[cols[3]] = "cn_10y"

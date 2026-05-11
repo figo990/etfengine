@@ -143,31 +143,38 @@ class BacktestEngine:
                 **context,
             )
 
+            signals_to_process = []
             if signal is not None:
-                exec_price = self._apply_slippage(current_price, signal.direction)
+                if isinstance(signal, list):
+                    signals_to_process = signal
+                else:
+                    signals_to_process = [signal]
 
-                if signal.direction == "buy" and signal.amount > 0:
-                    cost = self._calc_trading_cost(signal.amount, "buy")
-                    actual_invest = signal.amount - cost
+            for sig in signals_to_process:
+                exec_price = self._apply_slippage(current_price, sig.direction)
+
+                if sig.direction == "buy" and sig.amount > 0:
+                    cost = self._calc_trading_cost(sig.amount, "buy")
+                    actual_invest = sig.amount - cost
                     shares_bought = actual_invest / exec_price
 
                     total_shares += shares_bought
-                    total_invested += signal.amount
+                    total_invested += sig.amount
 
                     filled_order = TradeOrder(
                         trade_date=current_date,
                         direction="buy",
-                        amount=signal.amount,
+                        amount=sig.amount,
                         price=exec_price,
                         shares=shares_bought,
-                        reason=signal.reason,
+                        reason=sig.reason,
                     )
                     orders.append(filled_order)
                     strategy.on_order_filled(filled_order)
 
-                elif signal.direction == "sell" and signal.amount > 0:
+                elif sig.direction == "sell" and sig.amount > 0:
                     shares_to_sell = min(
-                        signal.amount / exec_price, total_shares
+                        sig.amount / exec_price, total_shares
                     )
                     sell_amount = shares_to_sell * exec_price
                     cost = self._calc_trading_cost(sell_amount, "sell")
@@ -182,7 +189,7 @@ class BacktestEngine:
                         amount=net_proceeds,
                         price=exec_price,
                         shares=shares_to_sell,
-                        reason=signal.reason,
+                        reason=sig.reason,
                     )
                     orders.append(filled_order)
                     strategy.on_order_filled(filled_order)
@@ -268,7 +275,19 @@ class BacktestEngine:
         if result.max_drawdown > 0:
             result.calmar_ratio = result.annual_return / result.max_drawdown
 
-        # 胜率
+        # 胜率（基于买卖配对）
         buy_orders = [o for o in result.orders if o.direction == "buy"]
-        if buy_orders and result.final_value > result.total_invested:
+        sell_orders = [o for o in result.orders if o.direction == "sell"]
+        if sell_orders:
+            profitable_sells = sum(1 for s in sell_orders if s.amount > 0)
+            paired = min(len(buy_orders), len(sell_orders))
+            if paired > 0:
+                wins = 0
+                for j in range(paired):
+                    if sell_orders[j].amount > buy_orders[j].amount:
+                        wins += 1
+                result.win_rate = wins / paired
+            else:
+                result.win_rate = 0.0
+        elif buy_orders:
             result.win_rate = 1.0 if result.total_return > 0 else 0.0
