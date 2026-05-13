@@ -44,6 +44,16 @@ def create_scheduler() -> BlockingScheduler:
         name="新闻监控更新",
     )
 
+    scheduler.add_job(
+        overseas_earnings_update,
+        "cron",
+        day_of_week="sun",
+        hour=9,
+        minute=5,
+        id="overseas_earnings",
+        name="外盘科技龙头季报",
+    )
+
     return scheduler
 
 
@@ -64,6 +74,14 @@ def daily_signal_generation() -> None:
         logger.info(f"生成 {len(signals)} 条信号")
     finally:
         engine.close()
+
+
+def overseas_earnings_update() -> None:
+    """美股科技龙头季报（SEC companyfacts）周更"""
+    logger.info("执行外盘季报更新...")
+    from src.intelligence.overseas_earnings_monitor import OverseasEarningsMonitor
+
+    OverseasEarningsMonitor().run_cycle()
 
 
 def news_monitor_update() -> None:

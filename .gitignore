@@ -21,10 +21,10 @@ env/
 *.swo
 *.tmp
 
-# Data files (entire data directory except .gitkeep)
-data/
-!data/.gitkeep
-!data/db/.gitkeep
+# Data files（仅忽略仓库根目录 data/，勿匹配 src/data 源码目录）
+/data/
+!/data/.gitkeep
+!/data/db/.gitkeep
 
 # OS
 .DS_Store

@@ -132,6 +132,42 @@ class StorageEngine:
             )
         """)
 
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS overseas_earnings_metrics (
+                ticker VARCHAR,
+                company_name VARCHAR,
+                period_end DATE,
+                fiscal_year INTEGER,
+                fiscal_period VARCHAR,
+                form VARCHAR,
+                filed_date DATE,
+                revenue_usd DOUBLE,
+                net_income_usd DOUBLE,
+                eps_diluted DOUBLE,
+                revenue_yoy_pct DOUBLE,
+                net_income_yoy_pct DOUBLE,
+                revenue_tag VARCHAR,
+                net_income_tag VARCHAR,
+                eps_tag VARCHAR,
+                updated_at TIMESTAMP,
+                PRIMARY KEY (ticker, period_end)
+            )
+        """)
+
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS overseas_earnings_analysis (
+                ticker VARCHAR,
+                period_end DATE,
+                summary_zh VARCHAR,
+                sentiment DOUBLE,
+                impact_level VARCHAR,
+                related_etf_codes VARCHAR,
+                fact_brief VARCHAR,
+                analyzed_at TIMESTAMP,
+                PRIMARY KEY (ticker, period_end)
+            )
+        """)
+
         logger.info("数据库表结构初始化完成")
 
     def upsert_etf_daily(self, df: pd.DataFrame, code: str) -> int:
@@ -351,6 +387,109 @@ class StorageEngine:
 
         query += " ORDER BY trade_date"
         return self.conn.execute(query, params).fetchdf()
+
+    def upsert_overseas_earnings_metrics(self, rows: list[dict]) -> int:
+        """写入/更新美股季报结构化指标（SEC companyfacts）"""
+        if not rows:
+            return 0
+
+        from datetime import datetime
+
+        df = pd.DataFrame(rows)
+        for col in [
+            "ticker", "company_name", "period_end", "fiscal_year", "fiscal_period",
+            "form", "filed_date", "revenue_usd", "net_income_usd", "eps_diluted",
+            "revenue_yoy_pct", "net_income_yoy_pct", "revenue_tag", "net_income_tag",
+            "eps_tag", "updated_at",
+        ]:
+            if col not in df.columns:
+                df[col] = None
+        if "updated_at" not in df.columns or df["updated_at"].isna().all():
+            df["updated_at"] = datetime.now()
+
+        self.conn.execute("""
+            INSERT OR REPLACE INTO overseas_earnings_metrics (
+                ticker, company_name, period_end, fiscal_year, fiscal_period, form,
+                filed_date, revenue_usd, net_income_usd, eps_diluted,
+                revenue_yoy_pct, net_income_yoy_pct, revenue_tag, net_income_tag,
+                eps_tag, updated_at
+            )
+            SELECT ticker, company_name, period_end, fiscal_year, fiscal_period, form,
+                   filed_date, revenue_usd, net_income_usd, eps_diluted,
+                   revenue_yoy_pct, net_income_yoy_pct, revenue_tag, net_income_tag,
+                   eps_tag, updated_at
+            FROM df
+        """)
+        return len(df)
+
+    def upsert_overseas_earnings_analysis(self, rows: list[dict]) -> int:
+        """写入/更新季报中文解读"""
+        if not rows:
+            return 0
+
+        from datetime import datetime
+        import json
+
+        out = []
+        for r in rows:
+            etf = r.get("related_etf_codes", [])
+            if isinstance(etf, list):
+                etf_s = json.dumps(etf, ensure_ascii=False)
+            else:
+                etf_s = str(etf)
+            out.append({
+                "ticker": r.get("ticker"),
+                "period_end": r.get("period_end"),
+                "summary_zh": (r.get("summary_zh") or "")[:2000],
+                "sentiment": r.get("sentiment", 0.0),
+                "impact_level": r.get("impact_level", "low"),
+                "related_etf_codes": etf_s,
+                "fact_brief": (r.get("fact_brief") or "")[:4000],
+                "analyzed_at": r.get("analyzed_at") or datetime.now(),
+            })
+        df = pd.DataFrame(out)
+        self.conn.execute("""
+            INSERT OR REPLACE INTO overseas_earnings_analysis (
+                ticker, period_end, summary_zh, sentiment, impact_level,
+                related_etf_codes, fact_brief, analyzed_at
+            )
+            SELECT ticker, period_end, summary_zh, sentiment, impact_level,
+                   related_etf_codes, fact_brief, analyzed_at
+            FROM df
+        """)
+        return len(df)
+
+    def get_overseas_earnings_metrics(
+        self,
+        ticker: str | None = None,
+        limit: int = 500,
+    ) -> pd.DataFrame:
+        if ticker:
+            q = (
+                "SELECT * FROM overseas_earnings_metrics WHERE ticker = ? "
+                "ORDER BY period_end DESC LIMIT ?"
+            )
+            return self.conn.execute(q, [ticker, limit]).fetchdf()
+        return self.conn.execute(
+            "SELECT * FROM overseas_earnings_metrics ORDER BY period_end DESC LIMIT ?",
+            [limit],
+        ).fetchdf()
+
+    def get_overseas_earnings_analysis(
+        self,
+        ticker: str | None = None,
+        limit: int = 200,
+    ) -> pd.DataFrame:
+        if ticker:
+            return self.conn.execute(
+                "SELECT * FROM overseas_earnings_analysis WHERE ticker = ? "
+                "ORDER BY period_end DESC LIMIT ?",
+                [ticker, limit],
+            ).fetchdf()
+        return self.conn.execute(
+            "SELECT * FROM overseas_earnings_analysis ORDER BY analyzed_at DESC LIMIT ?",
+            [limit],
+        ).fetchdf()
 
     _ALLOWED_TABLES = {"etf_daily", "index_valuation", "bond_yield", "fundamental_data"}
     _ALLOWED_COLUMNS = {"code", "index_name", "1"}

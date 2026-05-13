@@ -1,0 +1,53 @@
+# 美股科技龙头季报监控（SEC EDGAR 结构化数据 + 可选 LLM 解读）
+# 合规：请求 SEC 时必须设置 User-Agent，见 settings 或环境变量 SEC_EDGAR_USER_AGENT
+
+enabled: true
+
+# SEC 要求 User-Agent 含可联系信息；未设置时用下方默认值（部署时请改成你的邮箱域名）
+sec_user_agent: "ETFEngine/1.0 (research; contact: etfengine-user@example.com)"
+
+# 采集节奏：weekly（推荐）| daily（易触发 SEC 限流，不建议）
+update_frequency: "weekly"
+
+# 跟踪标的：ticker 大写；cik 可空（自动从 SEC company_tickers 解析）
+# related_etf_codes：与 A 股/跨境 ETF 的映射，供 LLM 与页面展示
+watchlist:
+  - ticker: "AAPL"
+    name: "苹果"
+    cik: null
+    related_etf_codes: ["513100", "159509"]
+  - ticker: "MSFT"
+    name: "微软"
+    cik: null
+    related_etf_codes: ["513100", "513030"]
+  - ticker: "NVDA"
+    name: "英伟达"
+    cik: null
+    related_etf_codes: ["513100", "513300", "159509"]
+  - ticker: "GOOGL"
+    name: "谷歌-A"
+    cik: null
+    related_etf_codes: ["513100", "159509"]
+  - ticker: "META"
+    name: "Meta"
+    cik: null
+    related_etf_codes: ["513100", "159509"]
+  - ticker: "AMZN"
+    name: "亚马逊"
+    cik: null
+    related_etf_codes: ["513100", "159509"]
+  - ticker: "AMD"
+    name: "AMD"
+    cik: null
+    related_etf_codes: ["513100", "512480", "159509"]
+  - ticker: "AVGO"
+    name: "博通"
+    cik: null
+    related_etf_codes: ["513100", "512480"]
+  - ticker: "TSM"
+    name: "台积电"
+    cik: null
+    related_etf_codes: ["513100", "513030"]
+
+# LLM 解读（与 intelligence.yaml 共用 DEEPSEEK_API_KEY）；关闭则仅展示结构化指标与规则摘要
+llm_digest: true
