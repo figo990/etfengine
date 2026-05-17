@@ -4,11 +4,10 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.strategies.rotation.bond_equity import BondEquityRotationStrategy
-from src.strategies.rotation.sector_rotation import SectorRotationStrategy
 from src.strategies.rotation.dividend_rotation import DividendRotationStrategy
+from src.strategies.rotation.sector_rotation import SectorRotationStrategy
 
 
 class TestBondEquityRotation:
@@ -29,13 +28,18 @@ class TestBondEquityRotation:
 
     def test_signal_generation(self):
         strategy = BondEquityRotationStrategy({"rebalance_frequency": "monthly"})
-        prices = pd.DataFrame({
-            "trade_date": [date(2024, 1, 2)],
-            "close": [4.0],
-        })
+        prices = pd.DataFrame(
+            {
+                "trade_date": [date(2024, 1, 2)],
+                "close": [4.0],
+            }
+        )
         signal = strategy.generate_signal(
-            date(2024, 1, 2), prices,
-            current_pe=12.0, bond_yield_10y=2.5, position_value=10000,
+            date(2024, 1, 2),
+            prices,
+            current_pe=12.0,
+            bond_yield_10y=2.5,
+            position_value=10000,
         )
         assert signal is not None
         assert "股债轮动" in signal.reason
@@ -54,7 +58,8 @@ class TestSectorRotation:
         prices = pd.DataFrame({"trade_date": [date(2024, 1, 2)], "close": [100]})
         # 只传入1个行业，不足top_n
         signal = strategy.generate_signal(
-            date(2024, 1, 2), prices,
+            date(2024, 1, 2),
+            prices,
             sector_prices={"510230": pd.Series(range(300))},
         )
         assert signal is None
@@ -71,8 +76,11 @@ class TestDividendRotation:
         hk = pd.Series(np.linspace(80, 82, 50))
 
         signal = strategy.generate_signal(
-            date(2024, 6, 1), prices,
-            a_prices=a, hk_prices=hk, position_value=10000,
+            date(2024, 6, 1),
+            prices,
+            a_prices=a,
+            hk_prices=hk,
+            position_value=10000,
         )
         assert signal is not None
         assert "港股红利" in signal.reason

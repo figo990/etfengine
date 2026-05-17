@@ -1,14 +1,16 @@
 """网格交易页 — 基于真实ETF行情数据"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-
-import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
 from datetime import date
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 from loguru import logger
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("🔲 网格交易")
 
@@ -31,12 +33,14 @@ st.divider()
 @st.cache_resource(ttl=600)
 def _get_storage():
     from src.data.storage import StorageEngine
+
     return StorageEngine()
 
 
 def _load_portfolio_etfs() -> list[dict]:
     try:
         from src.core.config import get_portfolio_config
+
         cfg = get_portfolio_config()
         return cfg.get("portfolio", {}).get("holdings", [])
     except Exception as e:
@@ -78,8 +82,12 @@ with tab1:
         else:
             default_upper, default_lower = 2.0, 1.0
 
-        price_upper = st.number_input("价格上限", value=round(default_upper, 3), step=0.01, format="%.3f")
-        price_lower = st.number_input("价格下限", value=round(default_lower, 3), step=0.01, format="%.3f")
+        price_upper = st.number_input(
+            "价格上限", value=round(default_upper, 3), step=0.01, format="%.3f"
+        )
+        price_lower = st.number_input(
+            "价格下限", value=round(default_lower, 3), step=0.01, format="%.3f"
+        )
         num_grids = st.slider("网格数量", min_value=3, max_value=30, value=10)
         amount_per_grid = st.number_input("每格金额(元)", value=500, step=100)
         init_ratio = st.slider("初始仓位比例", 0.0, 1.0, 0.5)
@@ -96,21 +104,33 @@ with tab1:
         if not df_price.empty:
             dates = pd.to_datetime(df_price["trade_date"])
             prices = df_price["close"].values
-            fig.add_trace(go.Scatter(x=dates, y=prices, mode="lines", name="ETF真实价格",
-                                     line=dict(color="steelblue", width=1.5)))
+            fig.add_trace(
+                go.Scatter(
+                    x=dates,
+                    y=prices,
+                    mode="lines",
+                    name="ETF真实价格",
+                    line=dict(color="steelblue", width=1.5),
+                )
+            )
         else:
             st.info("无法加载真实行情，仅显示网格线")
 
         for i, line in enumerate(grid_lines):
-            fig.add_hline(y=line, line_dash="dot",
-                         line_color="rgba(255,165,0,0.4)",
-                         annotation_text=f"G{i}: {line:.3f}" if i % 2 == 0 else None)
+            fig.add_hline(
+                y=line,
+                line_dash="dot",
+                line_color="rgba(255,165,0,0.4)",
+                annotation_text=f"G{i}: {line:.3f}" if i % 2 == 0 else None,
+            )
 
         fig.add_hline(y=price_upper, line_color="red", line_dash="dash", annotation_text="上限")
         fig.add_hline(y=price_lower, line_color="green", line_dash="dash", annotation_text="下限")
 
-        fig.update_layout(title=f"{grid_type}可视化 ({num_grids}格)", yaxis_title="价格", height=450)
-        st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(
+            title=f"{grid_type}可视化 ({num_grids}格)", yaxis_title="价格", height=450
+        )
+        st.plotly_chart(fig, width="stretch")
 
         total_investment = amount_per_grid * num_grids
         step_size = (price_upper - price_lower) / num_grids if num_grids > 0 else 0
@@ -147,7 +167,9 @@ with tab2:
         else:
             with st.spinner("回测中..."):
                 df_bt["trade_date"] = pd.to_datetime(df_bt["trade_date"])
-                mask = (df_bt["trade_date"].dt.date >= bt_start) & (df_bt["trade_date"].dt.date <= bt_end)
+                mask = (df_bt["trade_date"].dt.date >= bt_start) & (
+                    df_bt["trade_date"].dt.date <= bt_end
+                )
                 bt_df = df_bt[mask].reset_index(drop=True)
 
                 if len(bt_df) < 10:
@@ -196,7 +218,11 @@ with tab2:
                     final_val = values[-1] if values else invested
                     total_ret = (final_val / invested - 1) * 100 if invested > 0 else 0
                     days = len(bt_df)
-                    annual_ret = ((final_val / invested) ** (252 / max(days, 1)) - 1) * 100 if invested > 0 else 0
+                    annual_ret = (
+                        ((final_val / invested) ** (252 / max(days, 1)) - 1) * 100
+                        if invested > 0
+                        else 0
+                    )
 
                     peak = np.maximum.accumulate(values) if values else [1]
                     dd = (np.array(peak) - np.array(values)) / np.array(peak)
@@ -216,19 +242,27 @@ with tab2:
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=dates_bt, y=prices, mode="lines", name="价格"))
                     if buy_points:
-                        fig.add_trace(go.Scatter(
-                            x=dates_bt.iloc[buy_points], y=buy_prices,
-                            mode="markers", name="买入",
-                            marker=dict(color="green", size=8, symbol="triangle-up"),
-                        ))
+                        fig.add_trace(
+                            go.Scatter(
+                                x=dates_bt.iloc[buy_points],
+                                y=buy_prices,
+                                mode="markers",
+                                name="买入",
+                                marker=dict(color="green", size=8, symbol="triangle-up"),
+                            )
+                        )
                     if sell_points:
-                        fig.add_trace(go.Scatter(
-                            x=dates_bt.iloc[sell_points], y=sell_prices,
-                            mode="markers", name="卖出",
-                            marker=dict(color="red", size=8, symbol="triangle-down"),
-                        ))
+                        fig.add_trace(
+                            go.Scatter(
+                                x=dates_bt.iloc[sell_points],
+                                y=sell_prices,
+                                mode="markers",
+                                name="卖出",
+                                marker=dict(color="red", size=8, symbol="triangle-down"),
+                            )
+                        )
                     fig.update_layout(title="网格交易买卖点（真实行情）", height=400)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
 with tab3:
     st.subheader("参数优化器")
@@ -278,11 +312,25 @@ with tab3:
 
                 res_df = pd.DataFrame(results).sort_values("总收益率(%)", ascending=False)
                 best = res_df.iloc[0]
-                st.success(f"最优参数: 网格数={int(best['网格数'])}, 收益率={best['总收益率(%)']:.2f}%")
+                st.success(
+                    f"最优参数: 网格数={int(best['网格数'])}, 收益率={best['总收益率(%)']:.2f}%"
+                )
 
-                fig = go.Figure(data=[
-                    go.Bar(x=res_df["网格数"].astype(str), y=res_df["总收益率(%)"],
-                           marker_color=["green" if v > 0 else "red" for v in res_df["总收益率(%)"]])
-                ])
-                fig.update_layout(title="不同网格数收益对比", xaxis_title="网格数", yaxis_title="收益率(%)", height=350)
-                st.plotly_chart(fig, use_container_width=True)
+                fig = go.Figure(
+                    data=[
+                        go.Bar(
+                            x=res_df["网格数"].astype(str),
+                            y=res_df["总收益率(%)"],
+                            marker_color=[
+                                "green" if v > 0 else "red" for v in res_df["总收益率(%)"]
+                            ],
+                        )
+                    ]
+                )
+                fig.update_layout(
+                    title="不同网格数收益对比",
+                    xaxis_title="网格数",
+                    yaxis_title="收益率(%)",
+                    height=350,
+                )
+                st.plotly_chart(fig, width="stretch")

@@ -1,17 +1,16 @@
 """智能资讯页：行业新闻 / 政策追踪 / 基本面分析"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-
 import json
-from datetime import date, timedelta
 
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 from loguru import logger
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("🧠 智能资讯中心")
 
@@ -38,18 +37,21 @@ def _load_news_from_db() -> pd.DataFrame:
     """尝试从 DuckDB 加载新闻，失败则返回 None"""
     try:
         from src.data.storage import StorageEngine
+
         storage = StorageEngine()
         df = storage.get_news_articles(limit=100)
         if not df.empty:
             return df
     except Exception as e:
         import logging
+
         logging.getLogger(__name__).debug(f"加载新闻数据失败（降级为示例）: {e}")
     return pd.DataFrame()
 
 
 def _get_storage_for_fund():
     from src.data.storage import StorageEngine
+
     return StorageEngine()
 
 
@@ -57,13 +59,13 @@ def _load_fundamental_snapshot() -> pd.DataFrame:
     """尝试加载基本面对比数据"""
     try:
         from src.analysis.fundamental import FundamentalAnalyzer
+
         analyzer = FundamentalAnalyzer()
         indices = ["沪深300", "中证500", "创业板指", "中证红利", "上证50"]
         return analyzer.compare_fundamentals(indices)
     except Exception as e:
         logger.debug(f"基本面数据加载失败: {e}")
         return pd.DataFrame()
-
 
 
 def _db_to_display(db_df: pd.DataFrame) -> pd.DataFrame:
@@ -78,16 +80,18 @@ def _db_to_display(db_df: pd.DataFrame) -> pd.DataFrame:
                 sectors = []
         sector_str = ", ".join(sectors) if sectors else ""
 
-        rows.append({
-            "时间": str(r.get("publish_time", "")),
-            "标题": r.get("title", ""),
-            "摘要": r.get("summary", ""),
-            "情绪": float(r.get("sentiment", 0)),
-            "影响": r.get("impact_level", "low"),
-            "行业": sector_str,
-            "来源": r.get("source", ""),
-            "政策": bool(r.get("is_policy", False)),
-        })
+        rows.append(
+            {
+                "时间": str(r.get("publish_time", "")),
+                "标题": r.get("title", ""),
+                "摘要": r.get("summary", ""),
+                "情绪": float(r.get("sentiment", 0)),
+                "影响": r.get("impact_level", "low"),
+                "行业": sector_str,
+                "来源": r.get("source", ""),
+                "政策": bool(r.get("is_policy", False)),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -114,40 +118,51 @@ if not news_df.empty:
     for sector in SECTORS:
         mask = news_df["行业"].str.contains(sector, na=False)
         sub = news_df[mask]
-        sector_stats.append({
-            "行业": sector,
-            "新闻数量": len(sub),
-            "平均情绪": round(sub["情绪"].mean(), 3) if len(sub) else 0,
-            "重大影响": len(sub[sub["影响"] == "high"]) if len(sub) else 0,
-        })
+        sector_stats.append(
+            {
+                "行业": sector,
+                "新闻数量": len(sub),
+                "平均情绪": round(sub["情绪"].mean(), 3) if len(sub) else 0,
+                "重大影响": len(sub[sub["影响"] == "high"]) if len(sub) else 0,
+            }
+        )
     heatmap_data = pd.DataFrame(sector_stats)
 else:
-    heatmap_data = pd.DataFrame({
-        "行业": SECTORS,
-        "新闻数量": [0] * len(SECTORS),
-        "平均情绪": [0.0] * len(SECTORS),
-        "重大影响": [0] * len(SECTORS),
-    })
+    heatmap_data = pd.DataFrame(
+        {
+            "行业": SECTORS,
+            "新闻数量": [0] * len(SECTORS),
+            "平均情绪": [0.0] * len(SECTORS),
+            "重大影响": [0] * len(SECTORS),
+        }
+    )
 
 col_h1, col_h2 = st.columns([2, 3])
 
 with col_h1:
     st.dataframe(
         heatmap_data.style.background_gradient(
-            subset=["平均情绪"], cmap="RdYlGn", vmin=-1, vmax=1,
+            subset=["平均情绪"],
+            cmap="RdYlGn",
+            vmin=-1,
+            vmax=1,
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
 with col_h2:
     fig_heat = px.bar(
-        heatmap_data, x="行业", y="平均情绪",
-        color="平均情绪", color_continuous_scale="RdYlGn", range_color=[-1, 1],
+        heatmap_data,
+        x="行业",
+        y="平均情绪",
+        color="平均情绪",
+        color_continuous_scale="RdYlGn",
+        range_color=[-1, 1],
         text=heatmap_data["平均情绪"].apply(lambda x: f"{x:+.2f}"),
     )
     fig_heat.update_layout(title="行业情绪分布", yaxis_range=[-1, 1], height=300, showlegend=False)
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, width="stretch")
 
 st.divider()
 
@@ -204,29 +219,38 @@ st.subheader("📜 行业政策追踪")
 
 try:
     from src.intelligence.sector_tracker import SectorTracker
+
     tracker = SectorTracker()
     if not news_df.empty:
         analyzed_for_tracker = []
         for _, row in news_df.iterrows():
-            analyzed_for_tracker.append({
-                "title": row["标题"],
-                "content": row.get("摘要", ""),
-                "source": row["来源"],
-                "sentiment": row["情绪"],
-                "impact_level": row["影响"],
-                "is_policy": row["政策"],
-                "category": "policy" if row["政策"] else "finance",
-                "related_sectors": [s.strip() for s in str(row["行业"]).split(",") if s.strip()],
-                "summary": row.get("摘要", ""),
-            })
+            analyzed_for_tracker.append(
+                {
+                    "title": row["标题"],
+                    "content": row.get("摘要", ""),
+                    "source": row["来源"],
+                    "sentiment": row["情绪"],
+                    "impact_level": row["影响"],
+                    "is_policy": row["政策"],
+                    "category": "policy" if row["政策"] else "finance",
+                    "related_sectors": [
+                        s.strip() for s in str(row["行业"]).split(",") if s.strip()
+                    ],
+                    "summary": row.get("摘要", ""),
+                }
+            )
         alerts = tracker.track(analyzed_for_tracker)
         policy_rows = tracker.get_sector_summary(alerts)
         if policy_rows:
-            policy_summary = pd.DataFrame(policy_rows).rename(columns={
-                "sector": "行业", "alert_count": "政策条数",
-                "avg_sentiment": "平均情绪", "impact_direction": "方向",
-                "top_alert_title": "核心政策",
-            })
+            policy_summary = pd.DataFrame(policy_rows).rename(
+                columns={
+                    "sector": "行业",
+                    "alert_count": "政策条数",
+                    "avg_sentiment": "平均情绪",
+                    "impact_direction": "方向",
+                    "top_alert_title": "核心政策",
+                }
+            )
         else:
             policy_summary = None
     else:
@@ -238,9 +262,12 @@ except Exception as e:
 if policy_summary is not None and not policy_summary.empty:
     st.dataframe(
         policy_summary.style.background_gradient(
-            subset=["平均情绪"], cmap="RdYlGn", vmin=-1, vmax=1,
+            subset=["平均情绪"],
+            cmap="RdYlGn",
+            vmin=-1,
+            vmax=1,
         ),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 else:
@@ -259,6 +286,7 @@ selected_idx = st.selectbox("选择指数", indices)
 fund_from_db = pd.DataFrame()
 try:
     from src.data.storage import StorageEngine
+
     storage = StorageEngine()
     fund_from_db = storage.get_fundamental_data(selected_idx)
 except Exception as e:
@@ -284,7 +312,8 @@ else:
             fund_df["PE"] = fund_df["pe"]
             fund_df["PB"] = fund_df["pb"]
             fund_df["ROE(推算)"] = fund_df.apply(
-                lambda r: r["pb"] / r["pe"] * 100 if r.get("pe") and r["pe"] > 0 else 0, axis=1)
+                lambda r: r["pb"] / r["pe"] * 100 if r.get("pe") and r["pe"] > 0 else 0, axis=1
+            )
         else:
             fund_df = pd.DataFrame()
     except Exception as e:
@@ -295,21 +324,31 @@ if not fund_df.empty and "日期" in fund_df.columns and "PE" in fund_df.columns
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         fig_pe = go.Figure()
-        fig_pe.add_trace(go.Scatter(
-            x=fund_df["日期"], y=fund_df["PE"],
-            mode="lines", name="PE", line=dict(color="#1f77b4"),
-        ))
+        fig_pe.add_trace(
+            go.Scatter(
+                x=fund_df["日期"],
+                y=fund_df["PE"],
+                mode="lines",
+                name="PE",
+                line=dict(color="#1f77b4"),
+            )
+        )
         fig_pe.update_layout(title=f"{selected_idx} PE 走势", height=300)
-        st.plotly_chart(fig_pe, use_container_width=True)
+        st.plotly_chart(fig_pe, width="stretch")
 
     with col_f2:
         fig_roe = go.Figure()
-        fig_roe.add_trace(go.Scatter(
-            x=fund_df["日期"], y=fund_df["ROE(推算)"],
-            mode="lines", name="ROE", line=dict(color="#2ca02c"),
-        ))
+        fig_roe.add_trace(
+            go.Scatter(
+                x=fund_df["日期"],
+                y=fund_df["ROE(推算)"],
+                mode="lines",
+                name="ROE",
+                line=dict(color="#2ca02c"),
+            )
+        )
         fig_roe.update_layout(title=f"{selected_idx} ROE 推算走势", height=300)
-        st.plotly_chart(fig_roe, use_container_width=True)
+        st.plotly_chart(fig_roe, width="stretch")
 else:
     st.info(f"暂无 {selected_idx} 的基本面趋势数据")
 
@@ -319,13 +358,16 @@ st.markdown("#### 多指数基本面对比")
 compare_live = _load_fundamental_snapshot()
 if not compare_live.empty:
     display_cols = {
-        "index_name": "指数", "pe": "PE", "pb": "PB",
-        "dividend_yield": "股息率", "roe_trend": "ROE趋势",
+        "index_name": "指数",
+        "pe": "PE",
+        "pb": "PB",
+        "dividend_yield": "股息率",
+        "roe_trend": "ROE趋势",
         "pe_change_1y": "PE年变化(%)",
     }
     available = [c for c in display_cols if c in compare_live.columns]
     compare_display = compare_live[available].rename(columns=display_cols)
-    st.dataframe(compare_display, use_container_width=True, hide_index=True)
+    st.dataframe(compare_display, width="stretch", hide_index=True)
 else:
     try:
         storage_cmp = _get_storage_for_fund()
@@ -337,14 +379,16 @@ else:
                 pe = latest.get("pe")
                 pb = latest.get("pb")
                 dy = latest.get("dividend_yield")
-                cmp_rows.append({
-                    "指数": idx_name,
-                    "PE": f"{pe:.2f}" if pe else "--",
-                    "PB": f"{pb:.2f}" if pb else "--",
-                    "股息率": f"{dy:.2f}%" if dy else "--",
-                })
+                cmp_rows.append(
+                    {
+                        "指数": idx_name,
+                        "PE": f"{pe:.2f}" if pe else "--",
+                        "PB": f"{pb:.2f}" if pb else "--",
+                        "股息率": f"{dy:.2f}%" if dy else "--",
+                    }
+                )
         if cmp_rows:
-            st.dataframe(pd.DataFrame(cmp_rows), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(cmp_rows), width="stretch", hide_index=True)
         else:
             st.info("暂无指数估值数据")
     except Exception as e:

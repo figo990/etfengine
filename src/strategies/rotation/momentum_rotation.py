@@ -88,23 +88,28 @@ class MomentumRotationStrategy(BaseStrategy):
 
         if self._current_holding is not None:
             prev_name = "大盘" if self._current_holding == "large" else "小盘"
-            orders.append(TradeOrder(
-                trade_date=current_date,
-                direction="sell",
-                amount=amount,
-                price=current_price,
-                reason=f"轮动卖出{prev_name}: ROC大盘={roc_large:.1f}% ROC小盘={roc_small:.1f}%",
-            ))
+            sell_reason = f"轮动卖出{prev_name}: ROC大盘={roc_large:.1f}% ROC小盘={roc_small:.1f}%"
+            orders.append(
+                TradeOrder(
+                    trade_date=current_date,
+                    direction="sell",
+                    amount=amount,
+                    price=current_price,
+                    reason=sell_reason,
+                )
+            )
 
         self._current_holding = target
         target_name = "大盘" if target == "large" else "小盘"
 
-        orders.append(TradeOrder(
-            trade_date=current_date,
-            direction="buy",
-            amount=amount,
-            price=current_price,
-            reason=f"轮动买入{target_name}: ROC大盘={roc_large:.1f}% ROC小盘={roc_small:.1f}%",
-        ))
+        orders.append(
+            TradeOrder(
+                trade_date=current_date,
+                direction="buy",
+                amount=amount,
+                price=current_price,
+                reason=f"轮动买入{target_name}: ROC大盘={roc_large:.1f}% ROC小盘={roc_small:.1f}%",
+            )
+        )
 
         return orders if len(orders) > 1 else orders[0]

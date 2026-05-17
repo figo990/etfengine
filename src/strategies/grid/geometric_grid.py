@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.strategies.base_strategy import BaseStrategy, TradeOrder
@@ -51,8 +50,7 @@ class GeometricGridStrategy(BaseStrategy):
     def _setup_grids(self) -> None:
         ratio = self.price_upper / self.price_lower
         self._grid_lines = [
-            self.price_lower * (ratio ** (i / self.num_grids))
-            for i in range(self.num_grids + 1)
+            self.price_lower * (ratio ** (i / self.num_grids)) for i in range(self.num_grids + 1)
         ]
         self._position_at_grid = {}
 

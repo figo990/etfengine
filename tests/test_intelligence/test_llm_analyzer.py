@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from src.intelligence.llm_analyzer import LLMAnalyzer, NewsAnalysisResult
 
 
@@ -30,14 +28,16 @@ class TestLLMAnalyzerParsing:
         self.analyzer = LLMAnalyzer()
 
     def test_parse_valid_json(self):
-        raw = json.dumps({
-            "summary": "测试摘要",
-            "sentiment": 0.6,
-            "impact_level": "high",
-            "related_sectors": ["半导体"],
-            "related_etf_codes": ["512480"],
-            "is_policy": False,
-        })
+        raw = json.dumps(
+            {
+                "summary": "测试摘要",
+                "sentiment": 0.6,
+                "impact_level": "high",
+                "related_sectors": ["半导体"],
+                "related_etf_codes": ["512480"],
+                "is_policy": False,
+            }
+        )
         result = self.analyzer._parse_result("标题", raw)
         assert result.summary == "测试摘要"
         assert result.sentiment == 0.6

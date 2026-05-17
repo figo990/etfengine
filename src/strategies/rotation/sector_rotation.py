@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.strategies.base_strategy import BaseStrategy, TradeOrder
@@ -24,12 +23,15 @@ class SectorRotationStrategy(BaseStrategy):
         super().__init__(params)
         self.top_n = self.params.get("top_n", 3)
         self.rebalance_frequency = self.params.get("rebalance_frequency", "monthly")
-        self.weights = self.params.get("weights", {
-            "1m": 0.4,
-            "3m": 0.3,
-            "6m": 0.2,
-            "12m": 0.1,
-        })
+        self.weights = self.params.get(
+            "weights",
+            {
+                "1m": 0.4,
+                "3m": 0.3,
+                "6m": 0.2,
+                "12m": 0.1,
+            },
+        )
         self.roc_periods = {
             "1m": 20,
             "3m": 60,
@@ -95,12 +97,11 @@ class SectorRotationStrategy(BaseStrategy):
             return None
 
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        top_codes = [code for code, _ in ranked[:self.top_n]]
+        top_codes = [code for code, _ in ranked[: self.top_n]]
 
         if set(top_codes) == set(self._current_holdings):
             return None
 
-        old_holdings = self._current_holdings.copy()
         self._current_holdings = top_codes
 
         current_price = price_data["close"].iloc[-1]

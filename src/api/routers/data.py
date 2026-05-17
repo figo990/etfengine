@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 from fastapi import APIRouter, HTTPException
 
 from src.data.storage import StorageEngine

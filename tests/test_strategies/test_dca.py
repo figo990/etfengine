@@ -1,13 +1,11 @@
 """定投策略单元测试"""
 
-from datetime import date
-
 import pandas as pd
 import pytest
 
+from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 from src.strategies.dca.simple_dca import SimpleDCAStrategy
 from src.strategies.dca.valuation_dca import ValuationDCAStrategy
-from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 
 
 @pytest.fixture
@@ -15,17 +13,20 @@ def sample_price_data() -> pd.DataFrame:
     """生成示例价格数据"""
     dates = pd.bdate_range(start="2023-01-01", end="2023-12-31")
     import numpy as np
+
     np.random.seed(42)
     prices = 4.0 + np.cumsum(np.random.randn(len(dates)) * 0.02)
-    return pd.DataFrame({
-        "trade_date": dates.date,
-        "open": prices * 0.99,
-        "high": prices * 1.01,
-        "low": prices * 0.98,
-        "close": prices,
-        "volume": [1000000] * len(dates),
-        "amount": [5000000] * len(dates),
-    })
+    return pd.DataFrame(
+        {
+            "trade_date": dates.date,
+            "open": prices * 0.99,
+            "high": prices * 1.01,
+            "low": prices * 0.98,
+            "close": prices,
+            "volume": [1000000] * len(dates),
+            "amount": [5000000] * len(dates),
+        }
+    )
 
 
 class TestSimpleDCA:

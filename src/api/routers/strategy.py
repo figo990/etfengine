@@ -7,9 +7,9 @@ from fastapi import APIRouter, HTTPException
 from src.api.schemas import BacktestRequest, BacktestResponse
 from src.backtest.engine import BacktestConfig, BacktestEngine
 from src.data.storage import StorageEngine
+from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 from src.strategies.dca.simple_dca import SimpleDCAStrategy
 from src.strategies.dca.valuation_dca import ValuationDCAStrategy
-from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 from src.strategies.grid.equal_grid import EqualGridStrategy
 from src.strategies.grid.geometric_grid import GeometricGridStrategy
 
@@ -30,11 +30,13 @@ def list_strategies():
     strategies = []
     for key, cls in STRATEGY_MAP.items():
         instance = cls()
-        strategies.append({
-            "key": key,
-            "name": instance.name,
-            "description": instance.description,
-        })
+        strategies.append(
+            {
+                "key": key,
+                "name": instance.name,
+                "description": instance.description,
+            }
+        )
     return {"strategies": strategies}
 
 

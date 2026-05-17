@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pandas as pd
-from loguru import logger
 
 
 class FEDModelAnalyzer:
@@ -65,11 +64,13 @@ class FEDModelAnalyzer:
         if us_10y_yield is not None:
             us_erp = earnings_yield - us_10y_yield
             us_signal = self._classify_signal(us_erp)
-            result.update({
-                "us_10y_yield": us_10y_yield,
-                "us_erp": round(us_erp, 2),
-                "us_signal": us_signal,
-            })
+            result.update(
+                {
+                    "us_10y_yield": us_10y_yield,
+                    "us_erp": round(us_erp, 2),
+                    "us_signal": us_signal,
+                }
+            )
 
         return result
 

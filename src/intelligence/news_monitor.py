@@ -10,7 +10,7 @@ from loguru import logger
 
 from src.core.config import load_yaml_config
 from src.data.providers.news_provider import NewsArticle, NewsProvider
-from src.intelligence.llm_analyzer import LLMAnalyzer, NewsAnalysisResult
+from src.intelligence.llm_analyzer import LLMAnalyzer
 
 
 class NewsMonitor:
@@ -29,9 +29,7 @@ class NewsMonitor:
         self._provider = NewsProvider()
         self._llm = LLMAnalyzer()
         self._seen_hashes: dict[str, datetime] = {}
-        self._dedup_window = timedelta(
-            hours=self._monitor_config.get("dedup_window_hours", 24)
-        )
+        self._dedup_window = timedelta(hours=self._monitor_config.get("dedup_window_hours", 24))
 
     def run_cycle(self, use_llm: bool = True) -> list[dict]:
         """执行一轮采集-分析流程
@@ -68,10 +66,7 @@ class NewsMonitor:
         """基于标题哈希去重"""
         now = datetime.now()
         # 清理过期哈希
-        expired = [
-            h for h, t in self._seen_hashes.items()
-            if now - t > self._dedup_window
-        ]
+        expired = [h for h, t in self._seen_hashes.items() if now - t > self._dedup_window]
         for h in expired:
             del self._seen_hashes[h]
 
@@ -100,16 +95,18 @@ class NewsMonitor:
                     matched_sectors.append(sector_name)
                     matched_etf_codes.extend(sector_info.get("etf_codes", []))
 
-            results.append({
-                "title": art.title,
-                "content": art.content,
-                "source": art.source,
-                "publish_time": art.publish_time,
-                "url": art.url,
-                "category": art.category,
-                "matched_sectors": matched_sectors,
-                "matched_etf_codes": list(set(matched_etf_codes)),
-            })
+            results.append(
+                {
+                    "title": art.title,
+                    "content": art.content,
+                    "source": art.source,
+                    "publish_time": art.publish_time,
+                    "url": art.url,
+                    "category": art.category,
+                    "matched_sectors": matched_sectors,
+                    "matched_etf_codes": list(set(matched_etf_codes)),
+                }
+            )
 
         return results
 

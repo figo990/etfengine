@@ -16,6 +16,7 @@ from src.strategies.base_strategy import BaseStrategy, TradeOrder
 @dataclass
 class BacktestConfig:
     """回测参数配置"""
+
     start_date: date | None = None
     end_date: date | None = None
     initial_cash: float = 0.0
@@ -29,6 +30,7 @@ class BacktestConfig:
 @dataclass
 class DailyRecord:
     """每日记录"""
+
     trade_date: date
     price: float
     shares: float
@@ -42,6 +44,7 @@ class DailyRecord:
 @dataclass
 class BacktestResult:
     """回测结果"""
+
     strategy_name: str
     etf_code: str
     start_date: date
@@ -173,9 +176,7 @@ class BacktestEngine:
                     strategy.on_order_filled(filled_order)
 
                 elif sig.direction == "sell" and sig.amount > 0:
-                    shares_to_sell = min(
-                        sig.amount / exec_price, total_shares
-                    )
+                    shares_to_sell = min(sig.amount / exec_price, total_shares)
                     sell_amount = shares_to_sell * exec_price
                     cost = self._calc_trading_cost(sell_amount, "sell")
                     net_proceeds = sell_amount - cost
@@ -196,18 +197,22 @@ class BacktestEngine:
 
             market_value = total_shares * current_price
             total_value = market_value + cash
-            net_return = (total_value - total_invested) / total_invested if total_invested > 0 else 0
+            net_return = (
+                (total_value - total_invested) / total_invested if total_invested > 0 else 0
+            )
 
-            daily_records.append(DailyRecord(
-                trade_date=current_date,
-                price=current_price,
-                shares=total_shares,
-                market_value=market_value,
-                cash=cash,
-                total_value=total_value,
-                total_invested=total_invested,
-                net_return=net_return,
-            ))
+            daily_records.append(
+                DailyRecord(
+                    trade_date=current_date,
+                    price=current_price,
+                    shares=total_shares,
+                    market_value=market_value,
+                    cash=cash,
+                    total_value=total_value,
+                    total_invested=total_invested,
+                    net_return=net_return,
+                )
+            )
 
         result = BacktestResult(
             strategy_name=strategy.name,
@@ -233,8 +238,8 @@ class BacktestEngine:
 
         if result.total_invested > 0:
             result.total_return = (
-                (result.final_value - result.total_invested) / result.total_invested
-            )
+                result.final_value - result.total_invested
+            ) / result.total_invested
 
         days = (result.end_date - result.start_date).days
         if days > 0 and result.total_invested > 0:
@@ -260,9 +265,7 @@ class BacktestEngine:
             if returns.std() > 0:
                 risk_free_daily = 0.025 / 252
                 excess_returns = returns - risk_free_daily
-                result.sharpe_ratio = (
-                    excess_returns.mean() / excess_returns.std() * np.sqrt(252)
-                )
+                result.sharpe_ratio = excess_returns.mean() / excess_returns.std() * np.sqrt(252)
 
                 # 索提诺比率
                 downside_returns = excess_returns[excess_returns < 0]
@@ -279,7 +282,6 @@ class BacktestEngine:
         buy_orders = [o for o in result.orders if o.direction == "buy"]
         sell_orders = [o for o in result.orders if o.direction == "sell"]
         if sell_orders:
-            profitable_sells = sum(1 for s in sell_orders if s.amount > 0)
             paired = min(len(buy_orders), len(sell_orders))
             if paired > 0:
                 wins = 0

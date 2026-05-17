@@ -6,14 +6,14 @@ from datetime import date, datetime
 
 from loguru import logger
 
+from src.analysis.fed_model import FEDModelAnalyzer
+from src.analysis.valuation import ValuationAnalyzer
 from src.core.config import get_strategy_config
 from src.data.models import TradeSignal
 from src.data.storage import StorageEngine
-from src.analysis.valuation import ValuationAnalyzer
-from src.analysis.fed_model import FEDModelAnalyzer
-from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 from src.intelligence.news_monitor import NewsMonitor
 from src.intelligence.sector_tracker import SectorTracker
+from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
 
 
 class SignalEngine:
@@ -72,18 +72,20 @@ class SignalEngine:
 
         rows = []
         for sig in signals:
-            rows.append({
-                "strategy_name": sig.strategy_name,
-                "etf_code": sig.etf_code,
-                "signal_date": sig.signal_date,
-                "direction": sig.direction.value,
-                "amount": sig.amount,
-                "reason": sig.reason,
-                "confidence": sig.confidence,
-                "generated_at": sig.generated_at,
-            })
+            rows.append(
+                {
+                    "strategy_name": sig.strategy_name,
+                    "etf_code": sig.etf_code,
+                    "signal_date": sig.signal_date,
+                    "direction": sig.direction.value,
+                    "amount": sig.amount,
+                    "reason": sig.reason,
+                    "confidence": sig.confidence,
+                    "generated_at": sig.generated_at,
+                }
+            )
 
-        df = pd.DataFrame(rows)
+        df = pd.DataFrame(rows)  # noqa: F841 - DuckDB replacement scan reads this variable.
         try:
             self.storage.conn.execute("""
                 INSERT OR REPLACE INTO trade_signals (
@@ -113,11 +115,13 @@ class SignalEngine:
                     continue
 
                 ma_config = dca_config.get("ma_deviation", {})
-                strategy = MADeviationDCAStrategy({
-                    "base_amount": ma_config.get("base_amount", 1000),
-                    "ma_period": ma_config.get("ma_period", 250),
-                    "tiers": ma_config.get("tiers"),
-                })
+                strategy = MADeviationDCAStrategy(
+                    {
+                        "base_amount": ma_config.get("base_amount", 1000),
+                        "ma_period": ma_config.get("ma_period", 250),
+                        "tiers": ma_config.get("tiers"),
+                    }
+                )
 
                 signal = strategy.generate_signal(
                     current_date=target_date,
@@ -125,15 +129,17 @@ class SignalEngine:
                 )
 
                 if signal is not None:
-                    signals.append(TradeSignal(
-                        strategy_name="均线偏离定投",
-                        etf_code=code,
-                        signal_date=target_date,
-                        direction=TradeSignal.Direction.BUY,
-                        amount=signal.amount,
-                        reason=signal.reason,
-                        generated_at=datetime.now(),
-                    ))
+                    signals.append(
+                        TradeSignal(
+                            strategy_name="均线偏离定投",
+                            etf_code=code,
+                            signal_date=target_date,
+                            direction=TradeSignal.Direction.BUY,
+                            amount=signal.amount,
+                            reason=signal.reason,
+                            generated_at=datetime.now(),
+                        )
+                    )
             except Exception as e:
                 logger.warning(f"ETF {code} 定投信号生成失败: {e}")
 
@@ -159,25 +165,29 @@ class SignalEngine:
                 pe_pctile = snapshot.get("pe_percentile")
 
                 if pe_pctile is not None and pe_pctile < 20:
-                    signals.append(TradeSignal(
-                        strategy_name="估值预警",
-                        etf_code=etf_code,
-                        signal_date=target_date,
-                        direction=TradeSignal.Direction.BUY,
-                        reason=f"{index_name} PE百分位{pe_pctile:.1f}% 极度低估",
-                        confidence=0.8,
-                        generated_at=datetime.now(),
-                    ))
+                    signals.append(
+                        TradeSignal(
+                            strategy_name="估值预警",
+                            etf_code=etf_code,
+                            signal_date=target_date,
+                            direction=TradeSignal.Direction.BUY,
+                            reason=f"{index_name} PE百分位{pe_pctile:.1f}% 极度低估",
+                            confidence=0.8,
+                            generated_at=datetime.now(),
+                        )
+                    )
                 elif pe_pctile is not None and pe_pctile > 80:
-                    signals.append(TradeSignal(
-                        strategy_name="估值预警",
-                        etf_code=etf_code,
-                        signal_date=target_date,
-                        direction=TradeSignal.Direction.SELL,
-                        reason=f"{index_name} PE百分位{pe_pctile:.1f}% 极度高估",
-                        confidence=0.8,
-                        generated_at=datetime.now(),
-                    ))
+                    signals.append(
+                        TradeSignal(
+                            strategy_name="估值预警",
+                            etf_code=etf_code,
+                            signal_date=target_date,
+                            direction=TradeSignal.Direction.SELL,
+                            reason=f"{index_name} PE百分位{pe_pctile:.1f}% 极度高估",
+                            confidence=0.8,
+                            generated_at=datetime.now(),
+                        )
+                    )
             except Exception as e:
                 logger.warning(f"指数 {index_name} 估值预警生成失败: {e}")
 
@@ -207,6 +217,7 @@ class SignalEngine:
         alerts = self._sector_tracker.track(analyzed)
 
         from src.core.config import load_yaml_config
+
         intel_config = load_yaml_config("intelligence.yaml")
         sectors = intel_config.get("sectors", {})
 
@@ -224,25 +235,30 @@ class SignalEngine:
             etf_code = etf_codes[0]
 
             if avg_sent < -0.4:
-                signals.append(TradeSignal(
-                    strategy_name="新闻情绪预警",
-                    etf_code=etf_code,
-                    signal_date=target_date,
-                    direction=TradeSignal.Direction.SELL,
-                    reason=f"{sector_name}行业连续利空({count}条, 情绪{avg_sent:+.2f}), 建议减仓",
-                    confidence=min(abs(avg_sent), 0.9),
-                    generated_at=datetime.now(),
-                ))
+                reason = f"{sector_name}行业连续利空({count}条, 情绪{avg_sent:+.2f}), 建议减仓"
+                signals.append(
+                    TradeSignal(
+                        strategy_name="新闻情绪预警",
+                        etf_code=etf_code,
+                        signal_date=target_date,
+                        direction=TradeSignal.Direction.SELL,
+                        reason=reason,
+                        confidence=min(abs(avg_sent), 0.9),
+                        generated_at=datetime.now(),
+                    )
+                )
             elif avg_sent > 0.5:
-                signals.append(TradeSignal(
-                    strategy_name="新闻情绪预警",
-                    etf_code=etf_code,
-                    signal_date=target_date,
-                    direction=TradeSignal.Direction.BUY,
-                    reason=f"{sector_name}行业情绪转多({count}条, 情绪{avg_sent:+.2f}), 可关注",
-                    confidence=min(abs(avg_sent), 0.9),
-                    generated_at=datetime.now(),
-                ))
+                signals.append(
+                    TradeSignal(
+                        strategy_name="新闻情绪预警",
+                        etf_code=etf_code,
+                        signal_date=target_date,
+                        direction=TradeSignal.Direction.BUY,
+                        reason=f"{sector_name}行业情绪转多({count}条, 情绪{avg_sent:+.2f}), 可关注",
+                        confidence=min(abs(avg_sent), 0.9),
+                        generated_at=datetime.now(),
+                    )
+                )
 
         for sector_name, sector_alerts in alerts.items():
             high_impact = [a for a in sector_alerts if a.impact_score > 0.8]
@@ -255,16 +271,20 @@ class SignalEngine:
                 continue
 
             alert = high_impact[0]
-            direction = TradeSignal.Direction.BUY if alert.sentiment > 0 else TradeSignal.Direction.SELL
-            signals.append(TradeSignal(
-                strategy_name="政策预警",
-                etf_code=etf_codes[0],
-                signal_date=target_date,
-                direction=direction,
-                reason=f"[{sector_name}] {alert.title[:30]}",
-                confidence=min(alert.impact_score, 0.9),
-                generated_at=datetime.now(),
-            ))
+            direction = (
+                TradeSignal.Direction.BUY if alert.sentiment > 0 else TradeSignal.Direction.SELL
+            )
+            signals.append(
+                TradeSignal(
+                    strategy_name="政策预警",
+                    etf_code=etf_codes[0],
+                    signal_date=target_date,
+                    direction=direction,
+                    reason=f"[{sector_name}] {alert.title[:30]}",
+                    confidence=min(alert.impact_score, 0.9),
+                    generated_at=datetime.now(),
+                )
+            )
 
         return signals
 
@@ -288,16 +308,18 @@ class SignalEngine:
             signals = []
             for _, row in df.iterrows():
                 try:
-                    signals.append(TradeSignal(
-                        strategy_name=row.get("strategy_name", ""),
-                        etf_code=row.get("etf_code", ""),
-                        signal_date=row.get("signal_date", date.today()),
-                        direction=TradeSignal.Direction(row.get("direction", "buy")),
-                        amount=row.get("amount"),
-                        reason=row.get("reason", ""),
-                        confidence=row.get("confidence"),
-                        generated_at=row.get("generated_at", datetime.now()),
-                    ))
+                    signals.append(
+                        TradeSignal(
+                            strategy_name=row.get("strategy_name", ""),
+                            etf_code=row.get("etf_code", ""),
+                            signal_date=row.get("signal_date", date.today()),
+                            direction=TradeSignal.Direction(row.get("direction", "buy")),
+                            amount=row.get("amount"),
+                            reason=row.get("reason", ""),
+                            confidence=row.get("confidence"),
+                            generated_at=row.get("generated_at", datetime.now()),
+                        )
+                    )
                 except Exception as e:
                     logger.debug(f"解析信号记录失败: {e}")
                     continue

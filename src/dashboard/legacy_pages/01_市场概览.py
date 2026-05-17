@@ -1,13 +1,13 @@
 """市场概览页"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-import plotly.graph_objects as go
 import pandas as pd
-import numpy as np
-from datetime import date, timedelta
+import plotly.graph_objects as go
+import streamlit as st
 from loguru import logger
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("📊 市场概览")
 
@@ -43,12 +43,18 @@ try:
                     all_pe = df["pe"].dropna()
                     pe_pct = (all_pe < pe_val).sum() / len(all_pe) * 100 if len(all_pe) > 1 else 0
 
-                valuation_rows.append({
-                    "指数": idx_name,
-                    "PE": f"{float(pe_val):.2f}" if pe_val and not pd.isna(pe_val) else "--",
-                    "PE百分位(%)": f"{float(pe_pct):.1f}" if pe_pct and not pd.isna(pe_pct) else "--",
-                    "股息率(%)": f"{float(div_y):.2f}" if div_y and not pd.isna(div_y) else "--",
-                })
+                valuation_rows.append(
+                    {
+                        "指数": idx_name,
+                        "PE": f"{float(pe_val):.2f}" if pe_val and not pd.isna(pe_val) else "--",
+                        "PE百分位(%)": f"{float(pe_pct):.1f}"
+                        if pe_pct and not pd.isna(pe_pct)
+                        else "--",
+                        "股息率(%)": f"{float(div_y):.2f}"
+                        if div_y and not pd.isna(div_y)
+                        else "--",
+                    }
+                )
         except Exception as e:
             logger.warning(f"加载 {idx_name} 估值失败: {e}")
 
@@ -133,7 +139,7 @@ def _color_zone(val):
 
 st.dataframe(
     val_df.style.map(_color_zone, subset=["估值区间"]),
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
     height=250,
 )
@@ -151,18 +157,18 @@ if not chart_df.empty:
     pe_pcts = chart_df["PE百分位(%)"].values
     colors = ["#ef5350" if p > 70 else "#66bb6a" if p < 30 else "#ffa726" for p in pe_pcts]
 
-    fig.add_trace(go.Bar(
-        x=chart_df["指数"],
-        y=pe_pcts,
-        marker_color=colors,
-        text=[f"{p:.0f}%" for p in pe_pcts],
-        textposition="outside",
-    ))
+    fig.add_trace(
+        go.Bar(
+            x=chart_df["指数"],
+            y=pe_pcts,
+            marker_color=colors,
+            text=[f"{p:.0f}%" for p in pe_pcts],
+            textposition="outside",
+        )
+    )
 
-    fig.add_hline(y=30, line_dash="dash", line_color="green",
-                  annotation_text="低估线 30%")
-    fig.add_hline(y=70, line_dash="dash", line_color="red",
-                  annotation_text="高估线 70%")
+    fig.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="低估线 30%")
+    fig.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="高估线 70%")
 
     fig.update_layout(
         yaxis_range=[0, 100],
@@ -171,7 +177,7 @@ if not chart_df.empty:
         margin=dict(t=20, b=20),
         showlegend=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 st.divider()
 
@@ -195,20 +201,21 @@ with temp_col1:
         st.markdown("估值偏高，建议减少加仓、适当止盈")
 
 with temp_col2:
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=avg_pe_pct,
-        title={"text": "综合估值温度"},
-        gauge={
-            "axis": {"range": [0, 100]},
-            "bar": {"color": "#1976d2"},
-            "steps": [
-                {"range": [0, 30], "color": "#c8e6c9"},
-                {"range": [30, 60], "color": "#fff9c4"},
-                {"range": [60, 100], "color": "#ffcdd2"},
-            ],
-        },
-    ))
+    fig_gauge = go.Figure(
+        go.Indicator(
+            mode="gauge+number",
+            value=avg_pe_pct,
+            title={"text": "综合估值温度"},
+            gauge={
+                "axis": {"range": [0, 100]},
+                "bar": {"color": "#1976d2"},
+                "steps": [
+                    {"range": [0, 30], "color": "#c8e6c9"},
+                    {"range": [30, 60], "color": "#fff9c4"},
+                    {"range": [60, 100], "color": "#ffcdd2"},
+                ],
+            },
+        )
+    )
     fig_gauge.update_layout(height=250, margin=dict(t=30, b=10))
-    st.plotly_chart(fig_gauge, use_container_width=True)
-
+    st.plotly_chart(fig_gauge, width="stretch")

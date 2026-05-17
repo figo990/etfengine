@@ -1,0 +1,181 @@
+industry_chains:
+  artificial_intelligence:
+    name: "人工智能"
+    description: "覆盖算力基础设施、大模型、算法工具与AI应用落地的主题产业链。"
+    trend_keywords: ["算力", "大模型", "AI应用", "智能体", "国产替代", "云计算"]
+    etf_codes: ["515980", "159819", "512480", "588200"]
+    index_names: ["中证人工智能", "国证芯片", "科创芯片"]
+    segments:
+      upstream:
+        name: "上游基础设施"
+        keywords: ["AI芯片", "GPU", "服务器", "液冷", "光模块", "IDC", "算力"]
+        companies:
+          - code: "002371"
+            name: "北方华创"
+            aliases: ["北方华创科技集团"]
+            role: "半导体设备"
+          - code: "688041"
+            name: "海光信息"
+            aliases: ["海光"]
+            keywords: ["海光CPU", "海光DCU"]
+            role: "国产CPU/GPU"
+          - code: "300308"
+            name: "中际旭创"
+            aliases: ["旭创科技", "中际旭创股份"]
+            role: "高速光模块"
+          - code: "000977"
+            name: "浪潮信息"
+            aliases: ["浪潮", "浪潮电子信息"]
+            keywords: ["浪潮服务器"]
+            role: "AI服务器"
+      midstream:
+        name: "中游模型与平台"
+        keywords: ["大模型", "算法", "AI平台", "数据要素", "MaaS", "云服务"]
+        companies:
+          - code: "688111"
+            name: "金山办公"
+            aliases: ["金山WPS"]
+            keywords: ["WPS"]
+            role: "办公AI应用"
+          - code: "600570"
+            name: "恒生电子"
+            aliases: ["恒生"]
+            role: "金融科技AI"
+          - code: "300033"
+            name: "同花顺"
+            aliases: ["同花顺金融"]
+            role: "金融信息服务"
+      downstream:
+        name: "下游应用"
+        keywords: ["AI医疗", "AI教育", "智能客服", "AIGC", "自动驾驶", "AI终端"]
+        companies:
+          - code: "002230"
+            name: "科大讯飞"
+            aliases: ["讯飞"]
+            keywords: ["星火大模型"]
+            role: "语音与教育AI"
+          - code: "300624"
+            name: "万兴科技"
+            aliases: ["万兴"]
+            keywords: ["万兴喵影"]
+            role: "AIGC软件"
+          - code: "002415"
+            name: "海康威视"
+            aliases: ["海康", "Hikvision"]
+            role: "机器视觉"
+
+  robotics:
+    name: "机器人"
+    description: "覆盖核心零部件、本体制造、系统集成与工业/服务应用的机器人产业链。"
+    trend_keywords: ["人形机器人", "工业机器人", "减速器", "伺服系统", "机器视觉", "具身智能"]
+    etf_codes: ["562500", "515980"]
+    index_names: ["中证机器人", "中证人工智能"]
+    segments:
+      upstream:
+        name: "核心零部件"
+        keywords: ["减速器", "伺服", "控制器", "传感器", "电机", "丝杠"]
+        companies:
+          - code: "002472"
+            name: "双环传动"
+            aliases: ["双环", "双环传动股份"]
+            role: "精密齿轮/减速器"
+          - code: "002896"
+            name: "中大力德"
+            aliases: ["中大力德智能传动"]
+            role: "减速器与电机"
+          - code: "300124"
+            name: "汇川技术"
+            aliases: ["汇川", "Inovance"]
+            role: "伺服与控制系统"
+          - code: "688017"
+            name: "绿的谐波"
+            aliases: ["绿的", "Leaderdrive"]
+            role: "谐波减速器"
+      midstream:
+        name: "机器人本体"
+        keywords: ["机器人本体", "机械臂", "协作机器人", "人形机器人", "移动机器人"]
+        companies:
+          - code: "300024"
+            name: "机器人"
+            aliases: ["新松机器人", "沈阳新松"]
+            role: "工业机器人本体"
+          - code: "688165"
+            name: "埃夫特"
+            aliases: ["埃夫特智能装备", "EFORT"]
+            role: "工业机器人"
+          - code: "688322"
+            name: "奥比中光"
+            aliases: ["奥比", "Orbbec"]
+            role: "3D视觉传感器"
+      downstream:
+        name: "集成与应用"
+        keywords: ["智能制造", "汽车制造", "物流自动化", "服务机器人", "医疗机器人"]
+        companies:
+          - code: "603283"
+            name: "赛腾股份"
+            aliases: ["赛腾"]
+            role: "自动化设备"
+          - code: "300450"
+            name: "先导智能"
+            aliases: ["先导"]
+            role: "智能装备"
+          - code: "002747"
+            name: "埃斯顿"
+            aliases: ["ESTUN", "埃斯顿自动化"]
+            role: "机器人与自动化"
+
+  commercial_space:
+    name: "商业航天"
+    description: "覆盖卫星制造、火箭发射、地面设备、卫星互联网和下游应用的航天主题产业链。"
+    trend_keywords: ["商业航天", "卫星互联网", "低轨卫星", "火箭", "遥感", "北斗"]
+    etf_codes: ["563230", "159206", "512660"]
+    index_names: ["中证卫星", "中证军工"]
+    segments:
+      upstream:
+        name: "材料与核心器件"
+        keywords: ["卫星载荷", "射频芯片", "碳纤维", "航天材料", "惯导", "连接器"]
+        companies:
+          - code: "600879"
+            name: "航天电子"
+            aliases: ["航天时代电子"]
+            role: "航天电子设备"
+          - code: "002179"
+            name: "中航光电"
+            aliases: ["中航光电科技"]
+            role: "连接器"
+          - code: "300034"
+            name: "钢研高纳"
+            aliases: ["钢研", "高纳"]
+            role: "高温合金"
+      midstream:
+        name: "卫星与火箭制造"
+        keywords: ["卫星制造", "火箭发射", "商业火箭", "低轨星座", "卫星平台"]
+        companies:
+          - code: "600118"
+            name: "中国卫星"
+            aliases: ["中国东方红卫星", "东方红卫星"]
+            role: "小卫星制造"
+          - code: "000901"
+            name: "航天科技"
+            aliases: ["航天科技控股"]
+            role: "航天装备"
+          - code: "300101"
+            name: "振芯科技"
+            aliases: ["振芯", "国腾电子"]
+            role: "北斗终端"
+      downstream:
+        name: "地面设备与应用"
+        keywords: ["卫星通信", "卫星导航", "遥感应用", "地面站", "北斗应用"]
+        companies:
+          - code: "002465"
+            name: "海格通信"
+            aliases: ["海格", "广州海格"]
+            role: "通信与北斗"
+          - code: "002151"
+            name: "北斗星通"
+            aliases: ["北斗星通导航"]
+            role: "导航芯片与终端"
+          - code: "300177"
+            name: "中海达"
+            aliases: ["中海达卫星导航"]
+            role: "高精度定位"

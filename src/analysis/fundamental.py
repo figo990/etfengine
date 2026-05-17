@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 import akshare as ak
 import numpy as np
 import pandas as pd
@@ -97,7 +95,9 @@ class FundamentalAnalyzer:
 
         for field in ["pe", "pb", "dividend_yield", "roe"]:
             if field in valuation_df.columns:
-                result[field] = round(float(latest[field]), 4) if pd.notna(latest.get(field)) else None
+                result[field] = (
+                    round(float(latest[field]), 4) if pd.notna(latest.get(field)) else None
+                )
 
         # PE 变化方向（年化）
         if "pe" in valuation_df.columns and len(valuation_df) > 252:
@@ -119,9 +119,13 @@ class FundamentalAnalyzer:
             roe_clean = roe_series.dropna()
             if len(roe_clean) > 60:
                 roe_recent = roe_clean.tail(60).mean()
-                roe_prev = roe_clean.iloc[-120:-60].mean() if len(roe_clean) > 120 else roe_clean.mean()
-                result["roe_trend"] = "改善" if roe_recent > roe_prev * 1.02 else (
-                    "恶化" if roe_recent < roe_prev * 0.98 else "平稳"
+                roe_prev = (
+                    roe_clean.iloc[-120:-60].mean() if len(roe_clean) > 120 else roe_clean.mean()
+                )
+                result["roe_trend"] = (
+                    "改善"
+                    if roe_recent > roe_prev * 1.02
+                    else ("恶化" if roe_recent < roe_prev * 0.98 else "平稳")
                 )
 
         return result

@@ -1,15 +1,16 @@
 """策略回测页"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-
 from datetime import date
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from plotly.subplots import make_subplots
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("🧪 策略回测")
 
@@ -70,7 +71,7 @@ with col_config:
     commission = st.number_input("佣金率(万)", value=3.0) / 10000
     include_slippage = st.checkbox("计入滑点", value=True)
 
-    run_btn = st.button("🚀 运行回测", type="primary", use_container_width=True)
+    run_btn = st.button("🚀 运行回测", type="primary", width="stretch")
 
 
 def _run_backtest(
@@ -84,7 +85,7 @@ def _run_backtest(
 ) -> dict | None:
     """调用真实回测引擎"""
     try:
-        from src.backtest.engine import BacktestEngine, BacktestConfig
+        from src.backtest.engine import BacktestConfig, BacktestEngine
         from src.data.storage import StorageEngine
 
         storage = StorageEngine()
@@ -102,36 +103,51 @@ def _run_backtest(
 
         if strategy_key == "simple_dca":
             from src.strategies.dca.simple_dca import SimpleDCAStrategy
-            strategy = SimpleDCAStrategy({
-                "base_amount": params.get("amount", 1000),
-                "frequency": "monthly" if params.get("freq") == "每月" else "weekly",
-            })
+
+            strategy = SimpleDCAStrategy(
+                {
+                    "base_amount": params.get("amount", 1000),
+                    "frequency": "monthly" if params.get("freq") == "每月" else "weekly",
+                }
+            )
         elif strategy_key == "valuation_dca":
             from src.strategies.dca.valuation_dca import ValuationDCAStrategy
-            strategy = ValuationDCAStrategy({
-                "base_amount": params.get("amount", 1000),
-            })
+
+            strategy = ValuationDCAStrategy(
+                {
+                    "base_amount": params.get("amount", 1000),
+                }
+            )
         elif strategy_key == "ma_deviation_dca":
             from src.strategies.dca.ma_deviation_dca import MADeviationDCAStrategy
-            strategy = MADeviationDCAStrategy({
-                "base_amount": params.get("amount", 1000),
-            })
+
+            strategy = MADeviationDCAStrategy(
+                {
+                    "base_amount": params.get("amount", 1000),
+                }
+            )
         elif strategy_key == "equal_grid":
             from src.strategies.grid.equal_grid import EqualGridStrategy
-            strategy = EqualGridStrategy({
-                "upper_price": params.get("upper", 5.0),
-                "lower_price": params.get("lower", 3.0),
-                "num_grids": params.get("grids", 10),
-                "amount_per_grid": params.get("grid_amount", 500),
-            })
+
+            strategy = EqualGridStrategy(
+                {
+                    "upper_price": params.get("upper", 5.0),
+                    "lower_price": params.get("lower", 3.0),
+                    "num_grids": params.get("grids", 10),
+                    "amount_per_grid": params.get("grid_amount", 500),
+                }
+            )
         elif strategy_key == "geometric_grid":
             from src.strategies.grid.geometric_grid import GeometricGridStrategy
-            strategy = GeometricGridStrategy({
-                "upper_price": params.get("upper", 5.0),
-                "lower_price": params.get("lower", 3.0),
-                "num_grids": params.get("grids", 10),
-                "amount_per_grid": params.get("grid_amount", 500),
-            })
+
+            strategy = GeometricGridStrategy(
+                {
+                    "upper_price": params.get("upper", 5.0),
+                    "lower_price": params.get("lower", 3.0),
+                    "num_grids": params.get("grids", 10),
+                    "amount_per_grid": params.get("grid_amount", 500),
+                }
+            )
         else:
             return None
 
@@ -153,14 +169,24 @@ with col_result:
         if "定投" in strategy_name:
             local_params = {"amount": amount, "freq": freq}
         elif "网格" in strategy_name:
-            local_params = {"upper": upper, "lower": lower, "grids": grids, "grid_amount": grid_amount}
+            local_params = {
+                "upper": upper,
+                "lower": lower,
+                "grids": grids,
+                "grid_amount": grid_amount,
+            }
         else:
             local_params = {"amount": amount}
 
         with st.spinner("策略回测中..."):
             result = _run_backtest(
-                etf_code, strategy_key, start_date, end_date,
-                commission, include_slippage, **local_params,
+                etf_code,
+                strategy_key,
+                start_date,
+                end_date,
+                commission,
+                include_slippage,
+                **local_params,
             )
 
         if result is not None and "daily_values" in result:
@@ -168,11 +194,11 @@ with col_result:
 
             m1, m2, m3, m4 = st.columns(4)
             with m1:
-                st.metric("总收益率", f"{metrics.get('total_return', 0)*100:.1f}%")
+                st.metric("总收益率", f"{metrics.get('total_return', 0) * 100:.1f}%")
             with m2:
-                st.metric("年化收益", f"{metrics.get('annual_return', 0)*100:.1f}%")
+                st.metric("年化收益", f"{metrics.get('annual_return', 0) * 100:.1f}%")
             with m3:
-                st.metric("最大回撤", f"{metrics.get('max_drawdown', 0)*100:.1f}%")
+                st.metric("最大回撤", f"{metrics.get('max_drawdown', 0) * 100:.1f}%")
             with m4:
                 st.metric("夏普比率", f"{metrics.get('sharpe_ratio', 0):.2f}")
 
@@ -184,7 +210,7 @@ with col_result:
             with m7:
                 st.metric("交易次数", f"{metrics.get('total_trades', 0)}")
             with m8:
-                total_inv = metrics.get('total_investment', 0)
+                total_inv = metrics.get("total_investment", 0)
                 st.metric("累计投入", f"¥{total_inv:,.0f}")
 
             st.divider()
@@ -200,23 +226,39 @@ with col_result:
                 drawdown = ((1 + cumulative) - cummax) / cummax
 
                 fig = make_subplots(
-                    rows=2, cols=1, shared_xaxes=True,
-                    row_heights=[0.7, 0.3], vertical_spacing=0.05,
+                    rows=2,
+                    cols=1,
+                    shared_xaxes=True,
+                    row_heights=[0.7, 0.3],
+                    vertical_spacing=0.05,
                 )
                 fig.add_trace(
-                    go.Scatter(x=cumulative.index, y=cumulative * 100,
-                               mode="lines", name="策略收益", line=dict(color="steelblue")),
-                    row=1, col=1,
+                    go.Scatter(
+                        x=cumulative.index,
+                        y=cumulative * 100,
+                        mode="lines",
+                        name="策略收益",
+                        line=dict(color="steelblue"),
+                    ),
+                    row=1,
+                    col=1,
                 )
                 fig.add_trace(
-                    go.Scatter(x=drawdown.index, y=drawdown * 100,
-                               mode="lines", name="回撤", fill="tozeroy", line=dict(color="red")),
-                    row=2, col=1,
+                    go.Scatter(
+                        x=drawdown.index,
+                        y=drawdown * 100,
+                        mode="lines",
+                        name="回撤",
+                        fill="tozeroy",
+                        line=dict(color="red"),
+                    ),
+                    row=2,
+                    col=1,
                 )
                 fig.update_layout(height=500, title="收益曲线 & 回撤")
                 fig.update_yaxes(title_text="收益率(%)", row=1, col=1)
                 fig.update_yaxes(title_text="回撤(%)", row=2, col=1)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         else:
             st.warning(
@@ -242,23 +284,39 @@ with col_result:
                 st.metric("夏普比率", "0.72")
 
             fig = make_subplots(
-                rows=2, cols=1, shared_xaxes=True,
-                row_heights=[0.7, 0.3], vertical_spacing=0.05,
+                rows=2,
+                cols=1,
+                shared_xaxes=True,
+                row_heights=[0.7, 0.3],
+                vertical_spacing=0.05,
             )
             fig.add_trace(
-                go.Scatter(x=dates_mock, y=cumulative * 100, mode="lines",
-                           name="策略收益(模拟)", line=dict(color="steelblue")),
-                row=1, col=1,
+                go.Scatter(
+                    x=dates_mock,
+                    y=cumulative * 100,
+                    mode="lines",
+                    name="策略收益(模拟)",
+                    line=dict(color="steelblue"),
+                ),
+                row=1,
+                col=1,
             )
             fig.add_trace(
-                go.Scatter(x=dates_mock, y=drawdown * 100, mode="lines",
-                           name="回撤", fill="tozeroy", line=dict(color="red")),
-                row=2, col=1,
+                go.Scatter(
+                    x=dates_mock,
+                    y=drawdown * 100,
+                    mode="lines",
+                    name="回撤",
+                    fill="tozeroy",
+                    line=dict(color="red"),
+                ),
+                row=2,
+                col=1,
             )
             fig.update_layout(height=500, title="收益曲线 & 回撤 (模拟数据)")
             fig.update_yaxes(title_text="收益率(%)", row=1, col=1)
             fig.update_yaxes(title_text="回撤(%)", row=2, col=1)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     else:
         st.info("👈 请配置回测参数后点击「运行回测」")

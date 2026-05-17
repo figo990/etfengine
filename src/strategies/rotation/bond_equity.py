@@ -108,7 +108,7 @@ class BondEquityRotationStrategy(BaseStrategy):
             amount=amount,
             price=current_price,
             reason=(
-                f"股债轮动: ERP={erp:.2f}% 权益{target_weight*100:.0f}%"
+                f"股债轮动: ERP={erp:.2f}% 权益{target_weight * 100:.0f}%"
                 f" (PE={current_pe:.1f} 国债={bond_yield:.2f}%)"
             ),
         )

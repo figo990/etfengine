@@ -1,7 +1,5 @@
 """回测引擎单元测试"""
 
-from datetime import date
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -17,15 +15,17 @@ def price_data() -> pd.DataFrame:
     np.random.seed(42)
     prices = 4.0 + np.cumsum(np.random.randn(len(dates)) * 0.02)
     prices = np.maximum(prices, 2.0)
-    return pd.DataFrame({
-        "trade_date": dates.date,
-        "open": prices * 0.995,
-        "high": prices * 1.01,
-        "low": prices * 0.985,
-        "close": prices,
-        "volume": np.random.randint(500000, 2000000, len(dates)),
-        "amount": np.random.randint(2000000, 8000000, len(dates)),
-    })
+    return pd.DataFrame(
+        {
+            "trade_date": dates.date,
+            "open": prices * 0.995,
+            "high": prices * 1.01,
+            "low": prices * 0.985,
+            "close": prices,
+            "volume": np.random.randint(500000, 2000000, len(dates)),
+            "amount": np.random.randint(2000000, 8000000, len(dates)),
+        }
+    )
 
 
 class TestBacktestEngine:

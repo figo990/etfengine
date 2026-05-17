@@ -9,7 +9,6 @@ import yaml
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 
@@ -64,6 +63,27 @@ class BacktestConfig(BaseModel):
 class SchedulerConfig(BaseModel):
     daily_update_time: str = "18:30"
     signal_generate_time: str = "19:00"
+    industry_chain_update_time: str = "20:10"
+    data_quality_check_time: str = "20:30"
+    industry_chain_history_days: int = 183
+    dashboard_task_cleanup_time: str = "21:10"
+    dashboard_task_retention_days: int = 30
+    weekly_report_enabled: bool = True
+    weekly_report_time: str = "21:30"
+    weekly_report_day: str = "fri"
+    monthly_report_enabled: bool = True
+    monthly_report_time: str = "21:45"
+
+
+class DataHealthConfig(BaseModel):
+    market_data_max_age_days: int = 3
+    news_max_age_days: int = 2
+    company_fundamentals_max_age_days: int = 150
+    company_forecasts_max_age_days: int = 150
+    overseas_earnings_max_age_days: int = 150
+    recent_gap_lookback_days: int = 45
+    recent_gap_tolerance_days: int = 0
+    recent_failure_window_hours: int = 24
 
 
 class AppConfig(BaseModel):
@@ -94,6 +114,7 @@ class Settings(BaseSettings):
     data_source: DataSourceConfig = Field(default_factory=DataSourceConfig)
     backtest: BacktestConfig = Field(default_factory=BacktestConfig)
     scheduler: SchedulerConfig = Field(default_factory=SchedulerConfig)
+    data_health: DataHealthConfig = Field(default_factory=DataHealthConfig)
     notify: NotifyConfig = Field(default_factory=NotifyConfig)
 
 
@@ -102,7 +123,7 @@ def load_yaml_config(filename: str) -> dict[str, Any]:
     filepath = CONFIG_DIR / filename
     if not filepath.exists():
         raise FileNotFoundError(f"配置文件不存在: {filepath}")
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -125,6 +146,11 @@ def get_strategy_config() -> dict[str, Any]:
 def get_portfolio_config() -> dict[str, Any]:
     """获取组合配置"""
     return load_yaml_config("portfolio.yaml")
+
+
+def get_industry_chain_config() -> dict[str, Any]:
+    """获取产业链配置"""
+    return load_yaml_config("industry_chains.yaml")
 
 
 _settings: Settings | None = None

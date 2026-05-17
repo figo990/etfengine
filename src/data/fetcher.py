@@ -97,9 +97,7 @@ class DataFetcher:
         end_date: date | None = None,
     ) -> pd.DataFrame:
         """获取国债收益率"""
-        return self._fetch_with_fallback(
-            "get_bond_yield", start_date=start_date, end_date=end_date
-        )
+        return self._fetch_with_fallback("get_bond_yield", start_date=start_date, end_date=end_date)
 
     def get_index_daily(
         self,
@@ -113,4 +111,33 @@ class DataFetcher:
             index_code=index_code,
             start_date=start_date,
             end_date=end_date,
+        )
+
+    def get_stock_daily(
+        self,
+        code: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> pd.DataFrame:
+        """获取个股日线行情"""
+        return self._fetch_with_fallback(
+            "get_stock_daily",
+            code=code,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    def get_stock_fundamentals(self, code: str) -> pd.DataFrame:
+        """获取个股主要财务指标"""
+        return self._fetch_with_fallback("get_stock_fundamentals", code=code)
+
+    def get_stock_valuation(self, code: str) -> pd.DataFrame:
+        """获取个股估值历史"""
+        return self._fetch_with_fallback("get_stock_valuation", code=code)
+
+    def get_stock_earnings_forecasts(self, report_period: date) -> pd.DataFrame:
+        """获取某报告期业绩预告"""
+        return self._fetch_with_fallback(
+            "get_stock_earnings_forecasts",
+            report_period=report_period,
         )

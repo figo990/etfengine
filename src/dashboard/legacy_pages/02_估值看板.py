@@ -1,15 +1,13 @@
 """估值看板页"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pandas as pd
-import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
 from loguru import logger
-from datetime import date
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("📈 估值看板")
 
@@ -29,11 +27,13 @@ with st.expander("💡 使用说明", expanded=False):
 
 st.divider()
 
+
 # --- 加载真实数据 ---
 @st.cache_data(ttl=300)
 def _load_valuation_data():
     """从 DuckDB 加载所有指数估值"""
     from src.data.storage import StorageEngine
+
     storage = StorageEngine()
     indices = ["沪深300", "中证500", "中证1000", "上证50", "创业板指", "中证红利"]
     result = {}
@@ -49,6 +49,7 @@ def _load_valuation_data():
 def _load_bond_data():
     """加载国债收益率"""
     from src.data.storage import StorageEngine
+
     storage = StorageEngine()
     df = storage.get_bond_yield()
     storage.close()
@@ -102,14 +103,16 @@ with tab1:
             else:
                 zone = "高估"
 
-        rows.append({
-            "指数": idx_name,
-            "PE": round(pe_val, 2) if pe_val and not pd.isna(pe_val) else "--",
-            "PE百分位(%)": round(pe_pct, 1) if pe_pct and not pd.isna(pe_pct) else "--",
-            "股息率(%)": round(div_y, 2) if div_y and not pd.isna(div_y) else "--",
-            "估值区间": zone,
-            "数据日期": str(latest.get("trade_date", "")),
-        })
+        rows.append(
+            {
+                "指数": idx_name,
+                "PE": round(pe_val, 2) if pe_val and not pd.isna(pe_val) else "--",
+                "PE百分位(%)": round(pe_pct, 1) if pe_pct and not pd.isna(pe_pct) else "--",
+                "股息率(%)": round(div_y, 2) if div_y and not pd.isna(div_y) else "--",
+                "估值区间": zone,
+                "数据日期": str(latest.get("trade_date", "")),
+            }
+        )
 
     if rows:
         val_df = pd.DataFrame(rows)
@@ -126,7 +129,8 @@ with tab1:
 
         st.dataframe(
             val_df.style.map(_color_zone, subset=["估值区间"]),
-            use_container_width=True, hide_index=True,
+            width="stretch",
+            hide_index=True,
         )
 
         # PE百分位柱状图
@@ -134,15 +138,25 @@ with tab1:
         idx_names = [r["指数"] for r in rows if r["PE百分位(%)"] != "--"]
         if pe_pcts:
             colors = ["#ef5350" if p > 70 else "#66bb6a" if p < 30 else "#ffa726" for p in pe_pcts]
-            fig = go.Figure(go.Bar(
-                x=idx_names, y=pe_pcts, marker_color=colors,
-                text=[f"{p:.0f}%" for p in pe_pcts], textposition="outside",
-            ))
+            fig = go.Figure(
+                go.Bar(
+                    x=idx_names,
+                    y=pe_pcts,
+                    marker_color=colors,
+                    text=[f"{p:.0f}%" for p in pe_pcts],
+                    textposition="outside",
+                )
+            )
             fig.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="低估线30%")
             fig.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="高估线70%")
-            fig.update_layout(yaxis_range=[0, 100], yaxis_title="PE百分位(%)",
-                              height=350, margin=dict(t=20, b=20), showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(
+                yaxis_range=[0, 100],
+                yaxis_title="PE百分位(%)",
+                height=350,
+                margin=dict(t=20, b=20),
+                showlegend=False,
+            )
+            st.plotly_chart(fig, width="stretch")
 
 with tab2:
     st.subheader("股债性价比 (FED 模型)")
@@ -158,7 +172,9 @@ with tab2:
     hs300_df = valuation_data.get("沪深300", pd.DataFrame())
     if not hs300_df.empty and not bond_data.empty:
         latest_pe = hs300_df["pe"].dropna().iloc[-1] if "pe" in hs300_df.columns else None
-        latest_bond = bond_data["cn_10y"].dropna().iloc[-1] if "cn_10y" in bond_data.columns else None
+        latest_bond = (
+            bond_data["cn_10y"].dropna().iloc[-1] if "cn_10y" in bond_data.columns else None
+        )
         us_10y = bond_data["us_10y"].dropna().iloc[-1] if "us_10y" in bond_data.columns else None
 
         if latest_pe and latest_pe > 0 and latest_bond:
@@ -176,7 +192,9 @@ with tab2:
 
             col4, col5, col6 = st.columns(3)
             with col4:
-                st.metric("美国10年国债", f"{us_10y:.2f}%" if us_10y and not pd.isna(us_10y) else "--")
+                st.metric(
+                    "美国10年国债", f"{us_10y:.2f}%" if us_10y and not pd.isna(us_10y) else "--"
+                )
             with col5:
                 st.metric("美国视角 ERP", f"{us_erp:.2f}%" if us_erp else "--")
             with col6:
@@ -206,14 +224,24 @@ with tab2:
 
                 if len(merged) > 5:
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(
-                        x=merged["trade_date"], y=merged["erp"],
-                        mode="lines", name="ERP (中国视角)",
-                    ))
-                    fig.add_hline(y=4, line_dash="dash", line_color="green", annotation_text="强烈看多(4%)")
-                    fig.add_hline(y=0, line_dash="dash", line_color="red", annotation_text="偏债(0%)")
-                    fig.update_layout(title="沪深300 股债性价比历史", yaxis_title="ERP(%)", height=380)
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig.add_trace(
+                        go.Scatter(
+                            x=merged["trade_date"],
+                            y=merged["erp"],
+                            mode="lines",
+                            name="ERP (中国视角)",
+                        )
+                    )
+                    fig.add_hline(
+                        y=4, line_dash="dash", line_color="green", annotation_text="强烈看多(4%)"
+                    )
+                    fig.add_hline(
+                        y=0, line_dash="dash", line_color="red", annotation_text="偏债(0%)"
+                    )
+                    fig.update_layout(
+                        title="沪深300 股债性价比历史", yaxis_title="ERP(%)", height=380
+                    )
+                    st.plotly_chart(fig, width="stretch")
         else:
             st.info("PE 或国债收益率数据缺失")
     else:
@@ -232,21 +260,30 @@ with tab3:
             chart_df["trade_date"] = pd.to_datetime(chart_df["trade_date"])
 
             fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=chart_df["trade_date"], y=chart_df["pe"],
-                mode="lines", name="PE",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=chart_df["trade_date"],
+                    y=chart_df["pe"],
+                    mode="lines",
+                    name="PE",
+                )
+            )
             fig.update_layout(
                 title=f"{selected} PE 历史走势",
-                yaxis_title="PE", height=400,
+                yaxis_title="PE",
+                height=400,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # 当前位置分析
             pe_vals = sel_df["pe"].dropna()
             if len(pe_vals) > 1:
                 current_pe = pe_vals.iloc[-1]
                 pct = (pe_vals < current_pe).sum() / len(pe_vals) * 100
-                st.info(f"当前 PE = {current_pe:.2f}，历史百分位 = {pct:.1f}%（基于 {len(pe_vals)} 个数据点）")
+                pe_summary = (
+                    f"当前 PE = {current_pe:.2f}，历史百分位 = {pct:.1f}%"
+                    f"（基于 {len(pe_vals)} 个数据点）"
+                )
+                st.info(pe_summary)
     else:
         st.info("无可用数据")

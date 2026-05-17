@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.strategies.base_strategy import BaseStrategy, TradeOrder
@@ -58,9 +57,7 @@ class EqualGridStrategy(BaseStrategy):
     def _setup_grids(self) -> None:
         """初始化网格线"""
         step = (self.price_upper - self.price_lower) / self.num_grids
-        self._grid_lines = [
-            self.price_lower + i * step for i in range(self.num_grids + 1)
-        ]
+        self._grid_lines = [self.price_lower + i * step for i in range(self.num_grids + 1)]
         self._position_at_grid = {}
 
     def _find_grid_index(self, price: float) -> int:

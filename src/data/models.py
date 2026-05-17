@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class Frequency(str, Enum):
+class Frequency(StrEnum):
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
@@ -17,6 +17,7 @@ class Frequency(str, Enum):
 
 class ETFInfo(BaseModel):
     """ETF 基本信息"""
+
     code: str
     name: str
     index_tracked: str = ""
@@ -28,6 +29,7 @@ class ETFInfo(BaseModel):
 
 class OHLCVBar(BaseModel):
     """K线数据（OHLCV）"""
+
     code: str
     trade_date: date
     open: float
@@ -41,6 +43,7 @@ class OHLCVBar(BaseModel):
 
 class IndexValuation(BaseModel):
     """指数估值数据"""
+
     index_code: str
     index_name: str
     trade_date: date
@@ -55,15 +58,17 @@ class IndexValuation(BaseModel):
 
 class BondYield(BaseModel):
     """国债收益率"""
+
     trade_date: date
-    cn_10y: float | None = None       # 中国10年期
-    cn_5y: float | None = None        # 中国5年期
-    cn_1y: float | None = None        # 中国1年期
-    us_10y: float | None = None       # 美国10年期
+    cn_10y: float | None = None  # 中国10年期
+    cn_5y: float | None = None  # 中国5年期
+    cn_1y: float | None = None  # 中国1年期
+    us_10y: float | None = None  # 美国10年期
 
 
 class FundIndex(BaseModel):
     """基金指数数据（偏股基金指数等）"""
+
     index_name: str
     trade_date: date
     close: float
@@ -73,7 +78,7 @@ class FundIndex(BaseModel):
 class TradeSignal(BaseModel):
     """交易信号"""
 
-    class Direction(str, Enum):
+    class Direction(StrEnum):
         BUY = "buy"
         SELL = "sell"
         HOLD = "hold"
@@ -90,6 +95,7 @@ class TradeSignal(BaseModel):
 
 class BacktestResult(BaseModel):
     """回测结果"""
+
     strategy_name: str
     etf_code: str
     start_date: date
@@ -110,6 +116,7 @@ class BacktestResult(BaseModel):
 
 class PortfolioPosition(BaseModel):
     """组合持仓"""
+
     etf_code: str
     etf_name: str
     shares: float = 0.0

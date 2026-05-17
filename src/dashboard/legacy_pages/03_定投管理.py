@@ -1,14 +1,16 @@
 """定投管理页 — 基于真实ETF行情数据"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-
-import plotly.graph_objects as go
-import pandas as pd
-import numpy as np
 from datetime import date
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 from loguru import logger
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("💰 定投管理")
 
@@ -32,6 +34,7 @@ st.divider()
 @st.cache_resource(ttl=600)
 def _get_storage():
     from src.data.storage import StorageEngine
+
     return StorageEngine()
 
 
@@ -39,6 +42,7 @@ def _load_portfolio_etfs() -> list[dict]:
     """从 portfolio.yaml 加载持仓列表"""
     try:
         from src.core.config import get_portfolio_config
+
         cfg = get_portfolio_config()
         return cfg.get("portfolio", {}).get("holdings", [])
     except Exception as e:
@@ -71,13 +75,15 @@ with tab1:
     for h in holdings:
         df = _load_etf_daily(h["etf"])
         if df.empty or len(df) < 250:
-            signals.append({
-                "ETF": f"{h['name']}({h['etf']})",
-                "策略": "普通定投",
-                "信号": "正常定投",
-                "建议金额": 1000,
-                "触发条件": "数据不足，按默认",
-            })
+            signals.append(
+                {
+                    "ETF": f"{h['name']}({h['etf']})",
+                    "策略": "普通定投",
+                    "信号": "正常定投",
+                    "建议金额": 1000,
+                    "触发条件": "数据不足，按默认",
+                }
+            )
             continue
 
         close = df["close"].values
@@ -85,24 +91,46 @@ with tab1:
         deviation = (close[-1] - ma250) / ma250
 
         if deviation < -0.10:
-            strategy, signal, amount, cond = "均线偏离定投", "深度低估加码", 2000, f"MA250偏离{deviation*100:.1f}%"
+            strategy, signal, amount, cond = (
+                "均线偏离定投",
+                "深度低估加码",
+                2000,
+                f"MA250偏离{deviation * 100:.1f}%",
+            )
         elif deviation < -0.05:
-            strategy, signal, amount, cond = "均线偏离定投", "低估加码", 1500, f"MA250偏离{deviation*100:.1f}%"
+            strategy, signal, amount, cond = (
+                "均线偏离定投",
+                "低估加码",
+                1500,
+                f"MA250偏离{deviation * 100:.1f}%",
+            )
         elif deviation > 0.10:
-            strategy, signal, amount, cond = "均线偏离定投", "暂停定投", 0, f"MA250偏离{deviation*100:.1f}%"
+            strategy, signal, amount, cond = (
+                "均线偏离定投",
+                "暂停定投",
+                0,
+                f"MA250偏离{deviation * 100:.1f}%",
+            )
         else:
-            strategy, signal, amount, cond = "普通定投", "正常定投", 1000, f"MA250偏离{deviation*100:.1f}%"
+            strategy, signal, amount, cond = (
+                "普通定投",
+                "正常定投",
+                1000,
+                f"MA250偏离{deviation * 100:.1f}%",
+            )
 
-        signals.append({
-            "ETF": f"{h['name']}({h['etf']})",
-            "策略": strategy,
-            "信号": signal,
-            "建议金额": amount,
-            "触发条件": cond,
-        })
+        signals.append(
+            {
+                "ETF": f"{h['name']}({h['etf']})",
+                "策略": strategy,
+                "信号": signal,
+                "建议金额": amount,
+                "触发条件": cond,
+            }
+        )
 
     sig_df = pd.DataFrame(signals)
-    st.dataframe(sig_df, use_container_width=True, hide_index=True)
+    st.dataframe(sig_df, width="stretch", hide_index=True)
 
     st.divider()
     st.subheader("定投计划管理")
@@ -157,18 +185,31 @@ with tab2:
             st.metric("累计收益", f"¥{total_return_val:,.0f}", delta=f"{return_pct:.1f}%")
         with col4:
             years = len(prices) / 252 if len(prices) > 252 else 1
-            annual_ret = ((market_value / cumulative_cost) ** (1 / years) - 1) * 100 if cumulative_cost > 0 else 0
+            annual_ret = (
+                ((market_value / cumulative_cost) ** (1 / years) - 1) * 100
+                if cumulative_cost > 0
+                else 0
+            )
             st.metric("年化收益(估)", f"{annual_ret:.1f}%")
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=dates, y=prices, mode="lines", name="ETF价格",
-                                 line=dict(color="steelblue")))
+        fig.add_trace(
+            go.Scatter(
+                x=dates, y=prices, mode="lines", name="ETF价格", line=dict(color="steelblue")
+            )
+        )
         if avg_costs:
-            fig.add_trace(go.Scatter(x=invest_dates_list, y=avg_costs,
-                                     mode="lines", name="平均成本",
-                                     line=dict(color="orange", dash="dash")))
+            fig.add_trace(
+                go.Scatter(
+                    x=invest_dates_list,
+                    y=avg_costs,
+                    mode="lines",
+                    name="平均成本",
+                    line=dict(color="orange", dash="dash"),
+                )
+            )
         fig.update_layout(title="定投微笑曲线（真实行情）", yaxis_title="价格/成本", height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 with tab3:
     st.subheader("定投策略回测")
@@ -209,13 +250,13 @@ with tab3:
                         p = prices[idx]
                         amount = bt_amount
                         if bt_strategy == "估值定投(低PE加码)" and idx > 252:
-                            ma = np.mean(prices[max(0, idx - 252):idx])
+                            ma = np.mean(prices[max(0, idx - 252) : idx])
                             if p < ma * 0.9:
                                 amount = bt_amount * 1.5
                             elif p > ma * 1.1:
                                 amount = bt_amount * 0.5
                         elif bt_strategy == "均线偏离定投" and idx > 252:
-                            ma = np.mean(prices[max(0, idx - 250):idx])
+                            ma = np.mean(prices[max(0, idx - 250) : idx])
                             dev = (p - ma) / ma
                             if dev < -0.10:
                                 amount = bt_amount * 2
@@ -234,16 +275,24 @@ with tab3:
                             dd = (peak - current_val) / peak
                             max_dd = max(max_dd, dd)
 
-                        invest_records.append({
-                            "date": dates_bt.iloc[idx],
-                            "value": current_val,
-                            "invested": total_invested,
-                        })
+                        invest_records.append(
+                            {
+                                "date": dates_bt.iloc[idx],
+                                "value": current_val,
+                                "invested": total_invested,
+                            }
+                        )
 
                     final_value = total_shares * prices[-1]
-                    total_return_pct = (final_value / total_invested - 1) * 100 if total_invested > 0 else 0
+                    total_return_pct = (
+                        (final_value / total_invested - 1) * 100 if total_invested > 0 else 0
+                    )
                     years = len(bt_df) / 252
-                    annual_ret = ((final_value / total_invested) ** (1 / max(years, 0.1)) - 1) * 100 if total_invested > 0 else 0
+                    annual_ret = (
+                        ((final_value / total_invested) ** (1 / max(years, 0.1)) - 1) * 100
+                        if total_invested > 0
+                        else 0
+                    )
 
                     st.success("回测完成!")
                     rcol1, rcol2, rcol3, rcol4 = st.columns(4)
@@ -258,10 +307,21 @@ with tab3:
 
                     rec_df = pd.DataFrame(invest_records)
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=rec_df["date"], y=rec_df["value"],
-                                             mode="lines", name="组合市值"))
-                    fig.add_trace(go.Scatter(x=rec_df["date"], y=rec_df["invested"],
-                                             mode="lines", name="累计投入",
-                                             line=dict(dash="dash", color="gray")))
-                    fig.update_layout(title="定投回测曲线（真实行情）", yaxis_title="金额(元)", height=350)
-                    st.plotly_chart(fig, use_container_width=True)
+                    fig.add_trace(
+                        go.Scatter(
+                            x=rec_df["date"], y=rec_df["value"], mode="lines", name="组合市值"
+                        )
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=rec_df["date"],
+                            y=rec_df["invested"],
+                            mode="lines",
+                            name="累计投入",
+                            line=dict(dash="dash", color="gray"),
+                        )
+                    )
+                    fig.update_layout(
+                        title="定投回测曲线（真实行情）", yaxis_title="金额(元)", height=350
+                    )
+                    st.plotly_chart(fig, width="stretch")

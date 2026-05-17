@@ -107,7 +107,9 @@ class UsSecEarningsProvider:
         return self._http_get_json(url)
 
     @staticmethod
-    def _pick_usd_series(usgaap: dict[str, Any], tag: str, *, kind: str = "money") -> list[dict[str, Any]]:
+    def _pick_usd_series(
+        usgaap: dict[str, Any], tag: str, *, kind: str = "money"
+    ) -> list[dict[str, Any]]:
         if tag not in usgaap:
             return []
         units = usgaap[tag].get("units") or {}
@@ -175,23 +177,28 @@ class UsSecEarningsProvider:
                 fy = int(p.get("fy", 0) or 0)
                 if fy <= 0:
                     continue
-                out.append({
-                    "period_end": end,
-                    "fiscal_year": fy,
-                    "fiscal_period": fp,
-                    "form": form,
-                    "filed": self._parse_filed(p),
-                    "val": fv,
-                    "tag": tag,
-                    "metric": metric,
-                })
+                out.append(
+                    {
+                        "period_end": end,
+                        "fiscal_year": fy,
+                        "fiscal_period": fp,
+                        "form": form,
+                        "filed": self._parse_filed(p),
+                        "val": fv,
+                        "tag": tag,
+                        "metric": metric,
+                    }
+                )
             if out:
                 break
         return out
 
     def _dedupe_latest_filed(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """同一 (fy, fp) 或同一 period_end 保留 filed 最新的一条"""
-        key_fn = lambda r: (r["fiscal_year"], r["fiscal_period"], r["period_end"])
+
+        def key_fn(row: dict[str, Any]) -> tuple[int, str, date]:
+            return row["fiscal_year"], row["fiscal_period"], row["period_end"]
+
         best: dict[tuple[int, str, date], dict[str, Any]] = {}
         for r in rows:
             k = key_fn(r)
@@ -205,10 +212,14 @@ class UsSecEarningsProvider:
                 best[k] = r
             elif not fd and not pfd and r.get("tag", "") > prev.get("tag", ""):
                 best[k] = r
-        return sorted(best.values(), key=lambda x: (x["period_end"], x["fiscal_year"], x["fiscal_period"]))
+        return sorted(
+            best.values(), key=lambda x: (x["period_end"], x["fiscal_year"], x["fiscal_period"])
+        )
 
     @staticmethod
-    def _index_by_fiscal_period(rows: list[dict[str, Any]]) -> dict[tuple[int, str], dict[str, Any]]:
+    def _index_by_fiscal_period(
+        rows: list[dict[str, Any]],
+    ) -> dict[tuple[int, str], dict[str, Any]]:
         """按 (fy, fp) 合并，同一财季保留 filed 最新"""
         best: dict[tuple[int, str], dict[str, Any]] = {}
         for r in rows:
@@ -237,7 +248,9 @@ class UsSecEarningsProvider:
         keys = set(i_rev) | set(i_ni) | set(i_eps)
 
         merged: list[QuarterlyFactPoint] = []
-        for fy, fp in sorted(keys, key=lambda x: (x[0], {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}.get(x[1], 0))):
+        for fy, fp in sorted(
+            keys, key=lambda x: (x[0], {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}.get(x[1], 0))
+        ):
             r0 = i_rev.get((fy, fp))
             n0 = i_ni.get((fy, fp))
             e0 = i_eps.get((fy, fp))
@@ -247,23 +260,27 @@ class UsSecEarningsProvider:
             pend = base["period_end"]
             filed_dates = [x.get("filed") for x in (r0, n0, e0) if x and x.get("filed")]
             filed_max = max(filed_dates) if filed_dates else None
-            merged.append(QuarterlyFactPoint(
-                period_end=pend,
-                fiscal_year=fy,
-                fiscal_period=fp,
-                form=str(base.get("form", "")),
-                filed=filed_max,
-                revenue=r0["val"] if r0 else None,
-                net_income=n0["val"] if n0 else None,
-                eps_diluted=e0["val"] if e0 else None,
-                revenue_tag=r0["tag"] if r0 else "",
-                net_income_tag=n0["tag"] if n0 else "",
-                eps_tag=e0["tag"] if e0 else "",
-            ))
+            merged.append(
+                QuarterlyFactPoint(
+                    period_end=pend,
+                    fiscal_year=fy,
+                    fiscal_period=fp,
+                    form=str(base.get("form", "")),
+                    filed=filed_max,
+                    revenue=r0["val"] if r0 else None,
+                    net_income=n0["val"] if n0 else None,
+                    eps_diluted=e0["val"] if e0 else None,
+                    revenue_tag=r0["tag"] if r0 else "",
+                    net_income_tag=n0["tag"] if n0 else "",
+                    eps_tag=e0["tag"] if e0 else "",
+                )
+            )
         merged.sort(key=lambda x: (x.period_end, x.fiscal_year, x.fiscal_period))
         return merged
 
-    def fetch_quarterly_metrics(self, ticker: str, cik: int | None = None) -> list[QuarterlyFactPoint]:
+    def fetch_quarterly_metrics(
+        self, ticker: str, cik: int | None = None
+    ) -> list[QuarterlyFactPoint]:
         cik_i = self.resolve_cik(ticker, cik)
         facts = self.fetch_company_facts(cik_i)
         return self.build_quarterly_table(facts)

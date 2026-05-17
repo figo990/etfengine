@@ -14,11 +14,12 @@ from src.core.config import load_yaml_config
 @dataclass
 class PolicyAlert:
     """政策预警条目"""
+
     title: str
     summary: str
     sector: str
-    sentiment: float           # -1 ~ +1
-    impact_score: float        # 综合影响分（考虑来源权重）
+    sentiment: float  # -1 ~ +1
+    impact_score: float  # 综合影响分（考虑来源权重）
     source: str
     publish_time: datetime | None = None
     url: str = ""
@@ -63,7 +64,9 @@ class SectorTracker:
                     sector,
                     f"{item.get('title', '')} {item.get('content', '')[:200]}",
                 )
-                source_weight = self._calc_source_weight(item.get("source", ""), item.get("title", ""))
+                source_weight = self._calc_source_weight(
+                    item.get("source", ""), item.get("title", "")
+                )
                 base_sentiment = item.get("sentiment", 0.0)
                 impact_score = abs(base_sentiment) * source_weight
 
@@ -135,13 +138,15 @@ class SectorTracker:
             elif avg_sent < -0.2:
                 direction = "利空"
 
-            summaries.append({
-                "sector": sector,
-                "alert_count": len(alerts),
-                "avg_sentiment": round(avg_sent, 3),
-                "top_alert_title": alerts[0].title if alerts else "",
-                "impact_direction": direction,
-            })
+            summaries.append(
+                {
+                    "sector": sector,
+                    "alert_count": len(alerts),
+                    "avg_sentiment": round(avg_sent, 3),
+                    "top_alert_title": alerts[0].title if alerts else "",
+                    "impact_direction": direction,
+                }
+            )
 
         summaries.sort(key=lambda x: abs(x["avg_sentiment"]), reverse=True)
         return summaries

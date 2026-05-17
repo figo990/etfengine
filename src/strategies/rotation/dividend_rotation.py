@@ -25,8 +25,8 @@ class DividendRotationStrategy(BaseStrategy):
         super().__init__(params)
         self.return_diff_period = self.params.get("return_diff_period", 40)
         self.switch_threshold = self.params.get("switch_threshold", 0.05)
-        self.a_code = self.params.get("a_code", "515080")     # 中证红利
-        self.hk_code = self.params.get("hk_code", "159691")   # 港股红利
+        self.a_code = self.params.get("a_code", "515080")  # 中证红利
+        self.hk_code = self.params.get("hk_code", "159691")  # 港股红利
 
         self._current_holding: str | None = None  # "a_dividend" | "hk_dividend"
 
@@ -87,5 +87,8 @@ class DividendRotationStrategy(BaseStrategy):
             direction="buy",
             amount=amount,
             price=current_price,
-            reason=f"红利轮动至{target_name}: A股{ret_a*100:.1f}% 港股{ret_hk*100:.1f}% 差值{diff*100:.1f}%",
+            reason=(
+                f"红利轮动至{target_name}: A股{ret_a * 100:.1f}% "
+                f"港股{ret_hk * 100:.1f}% 差值{diff * 100:.1f}%"
+            ),
         )

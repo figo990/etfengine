@@ -75,24 +75,42 @@ class OverseasEarningsMonitor:
 
                 latest = max(rows, key=lambda r: r["period_end"])
                 brief = build_fact_brief_cn(ticker, name, latest)
-                title = f"{name}({ticker}) {latest['fiscal_year']}{latest['fiscal_period']} 季报解读"
+                title = (
+                    f"{name}({ticker}) {latest['fiscal_year']}{latest['fiscal_period']} 季报解读"
+                )
 
                 if llm is not None:
                     try:
                         res = llm.analyze_earnings_digest(title, brief, default_etfs)
-                        analysis_rows.append({
-                            "ticker": ticker,
-                            "period_end": latest["period_end"],
-                            "summary_zh": res.summary,
-                            "sentiment": res.sentiment,
-                            "impact_level": res.impact_level,
-                            "related_etf_codes": res.related_etf_codes or default_etfs,
-                            "fact_brief": brief,
-                            "analyzed_at": datetime.now(),
-                        })
+                        analysis_rows.append(
+                            {
+                                "ticker": ticker,
+                                "period_end": latest["period_end"],
+                                "summary_zh": res.summary,
+                                "sentiment": res.sentiment,
+                                "impact_level": res.impact_level,
+                                "related_etf_codes": res.related_etf_codes or default_etfs,
+                                "fact_brief": brief,
+                                "analyzed_at": datetime.now(),
+                            }
+                        )
                     except Exception as e:
                         logger.warning(f"[Earnings] {ticker} LLM 解读失败，使用规则摘要: {e}")
-                        analysis_rows.append({
+                        analysis_rows.append(
+                            {
+                                "ticker": ticker,
+                                "period_end": latest["period_end"],
+                                "summary_zh": brief[:200],
+                                "sentiment": 0.0,
+                                "impact_level": "low",
+                                "related_etf_codes": default_etfs,
+                                "fact_brief": brief,
+                                "analyzed_at": datetime.now(),
+                            }
+                        )
+                else:
+                    analysis_rows.append(
+                        {
                             "ticker": ticker,
                             "period_end": latest["period_end"],
                             "summary_zh": brief[:200],
@@ -101,25 +119,18 @@ class OverseasEarningsMonitor:
                             "related_etf_codes": default_etfs,
                             "fact_brief": brief,
                             "analyzed_at": datetime.now(),
-                        })
-                else:
-                    analysis_rows.append({
-                        "ticker": ticker,
-                        "period_end": latest["period_end"],
-                        "summary_zh": brief[:200],
-                        "sentiment": 0.0,
-                        "impact_level": "low",
-                        "related_etf_codes": default_etfs,
-                        "fact_brief": brief,
-                        "analyzed_at": datetime.now(),
-                    })
+                        }
+                    )
 
             total_a = 0
             if analysis_rows:
                 total_a = storage.upsert_overseas_earnings_analysis(analysis_rows)
 
             logger.info(
-                f"[Earnings] 完成: metrics_rows={total_m}, analysis_rows={total_a}, watchlist={len(watch)}"
+                "[Earnings] 完成: metrics_rows={}, analysis_rows={}, watchlist={}",
+                total_m,
+                total_a,
+                len(watch),
             )
             return {
                 "skipped": False,

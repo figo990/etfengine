@@ -70,10 +70,7 @@ class RiskParityAllocator:
             weights = x0
 
         weights = weights / weights.sum()
-        return {
-            col: round(float(w), 4)
-            for col, w in zip(returns_df.columns, weights)
-        }
+        return {col: round(float(w), 4) for col, w in zip(returns_df.columns, weights)}
 
     def calc_risk_metrics(
         self,
@@ -111,13 +108,10 @@ class RiskParityAllocator:
 
         return {
             "portfolio_vol": round(float(portfolio_vol), 4),
-            "individual_vols": {
-                col: round(float(v), 4) for col, v in zip(cols, individual_vols)
-            },
+            "individual_vols": {col: round(float(v), 4) for col, v in zip(cols, individual_vols)},
             "correlation_matrix": corr_matrix.round(3).to_dict(),
             "risk_contributions": {
-                col: round(float(rc), 4)
-                for col, rc in zip(cols, risk_contribution * np.sqrt(252))
+                col: round(float(rc), 4) for col, rc in zip(cols, risk_contribution * np.sqrt(252))
             },
             "weights": {col: weights[col] for col in cols},
         }
@@ -152,15 +146,15 @@ class RiskParityAllocator:
 
         try:
             result = minimize(
-                neg_sharpe, x0, method="SLSQP",
-                bounds=bounds, constraints=constraints,
+                neg_sharpe,
+                x0,
+                method="SLSQP",
+                bounds=bounds,
+                constraints=constraints,
             )
             weights = result.x if result.success else x0
         except Exception:
             weights = x0
 
         weights = weights / weights.sum()
-        return {
-            col: round(float(w), 4)
-            for col, w in zip(returns_df.columns, weights)
-        }
+        return {col: round(float(w), 4) for col, w in zip(returns_df.columns, weights)}

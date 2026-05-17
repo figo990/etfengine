@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
-import pandas as pd
-from loguru import logger
-
 
 @dataclass
 class RebalanceOrder:
     """再平衡调仓指令"""
+
     etf_code: str
     etf_name: str
     direction: str  # "buy" | "sell"
@@ -56,13 +53,15 @@ class PortfolioRebalancer:
         for h in holdings:
             actual_weight = h["market_value"] / total_value if total_value > 0 else 0
             drift = actual_weight - h["target_weight"]
-            result.append({
-                **h,
-                "actual_weight": round(actual_weight, 4),
-                "drift": round(drift, 4),
-                "abs_drift": round(abs(drift), 4),
-                "needs_rebalance": abs(drift) > self.drift_threshold,
-            })
+            result.append(
+                {
+                    **h,
+                    "actual_weight": round(actual_weight, 4),
+                    "drift": round(drift, 4),
+                    "abs_drift": round(abs(drift), 4),
+                    "needs_rebalance": abs(drift) > self.drift_threshold,
+                }
+            )
         return result
 
     def should_rebalance(self, holdings: list[dict], total_value: float) -> bool:
@@ -105,16 +104,18 @@ class PortfolioRebalancer:
             trade_amount = abs(diff)
             trade_shares = trade_amount / price
 
-            orders.append(RebalanceOrder(
-                etf_code=h["etf_code"],
-                etf_name=h.get("etf_name", ""),
-                direction=direction,
-                target_weight=h["target_weight"],
-                current_weight=h["actual_weight"],
-                drift=h["drift"],
-                trade_amount=round(trade_amount, 2),
-                trade_shares=round(trade_shares, 2),
-            ))
+            orders.append(
+                RebalanceOrder(
+                    etf_code=h["etf_code"],
+                    etf_name=h.get("etf_name", ""),
+                    direction=direction,
+                    target_weight=h["target_weight"],
+                    current_weight=h["actual_weight"],
+                    drift=h["drift"],
+                    trade_amount=round(trade_amount, 2),
+                    trade_shares=round(trade_shares, 2),
+                )
+            )
 
         # 先卖后买，避免资金不足
         orders.sort(key=lambda o: (o.direction != "sell", -o.trade_amount))
@@ -142,18 +143,21 @@ class PortfolioRebalancer:
             ret = returns_dict.get(code, 0.0)
             contribution = weight * ret
             total_contribution += contribution
-            result.append({
-                "etf_code": code,
-                "etf_name": h.get("etf_name", ""),
-                "weight": weight,
-                "return": round(ret * 100, 2),
-                "contribution": round(contribution * 100, 4),
-            })
+            result.append(
+                {
+                    "etf_code": code,
+                    "etf_name": h.get("etf_name", ""),
+                    "weight": weight,
+                    "return": round(ret * 100, 2),
+                    "contribution": round(contribution * 100, 4),
+                }
+            )
 
         for r in result:
             r["contribution_pct"] = (
                 round(r["contribution"] / (total_contribution * 100) * 100, 1)
-                if total_contribution != 0 else 0
+                if total_contribution != 0
+                else 0
             )
 
         return result

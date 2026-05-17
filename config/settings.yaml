@@ -37,6 +37,26 @@ backtest:
 scheduler:
   daily_update_time: "18:30"  # 每日数据更新时间
   signal_generate_time: "19:00"  # 信号生成时间
+  industry_chain_update_time: "20:10"  # 产业链企业行情更新时间
+  data_quality_check_time: "20:30"  # 数据健康检查与告警时间
+  industry_chain_history_days: 183  # 首次抓取约半年历史数据
+  dashboard_task_cleanup_time: "21:10"  # 后台任务成功历史清理时间
+  dashboard_task_retention_days: 30  # 成功后台任务保留天数，失败/中断任务保留排查
+  weekly_report_enabled: true  # 是否自动生成周报
+  weekly_report_time: "21:30"  # 周报自动生成时间
+  weekly_report_day: "fri"  # 周报生成日
+  monthly_report_enabled: true  # 是否自动生成月报
+  monthly_report_time: "21:45"  # 月报自动生成时间，默认每月最后一天
+
+data_health:
+  market_data_max_age_days: 3
+  news_max_age_days: 2
+  company_fundamentals_max_age_days: 150
+  company_forecasts_max_age_days: 150
+  overseas_earnings_max_age_days: 150
+  recent_gap_lookback_days: 45
+  recent_gap_tolerance_days: 0
+  recent_failure_window_hours: 24
 
 notify:
   enabled: false
@@ -45,6 +65,9 @@ notify:
       enabled: false
       smtp_host: ""
       smtp_port: 465
+      username: ""
+      password: ""
+      receiver: ""
     wechat:
       enabled: false
       webhook_url: ""

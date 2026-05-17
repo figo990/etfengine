@@ -13,6 +13,7 @@ import pandas as pd
 @dataclass
 class TradeOrder:
     """交易订单"""
+
     trade_date: date
     direction: str  # "buy" | "sell"
     amount: float  # 交易金额
@@ -24,6 +25,7 @@ class TradeOrder:
 @dataclass
 class StrategyState:
     """策略运行状态"""
+
     total_invested: float = 0.0
     total_shares: float = 0.0
     avg_cost: float = 0.0
@@ -79,16 +81,12 @@ class BaseStrategy(ABC):
             self.state.total_invested += order.amount
             self.state.total_shares += order.shares
             if self.state.total_shares > 0:
-                self.state.avg_cost = (
-                    self.state.total_invested / self.state.total_shares
-                )
+                self.state.avg_cost = self.state.total_invested / self.state.total_shares
         elif order.direction == "sell":
             sell_shares = order.shares
             self.state.total_shares -= sell_shares
             if self.state.total_shares > 0:
-                self.state.total_invested = (
-                    self.state.avg_cost * self.state.total_shares
-                )
+                self.state.total_invested = self.state.avg_cost * self.state.total_shares
             else:
                 self.state.total_invested = 0.0
                 self.state.avg_cost = 0.0

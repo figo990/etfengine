@@ -76,6 +76,27 @@ class BaseDataProvider(ABC):
         """获取指数日线行情（部分数据源可能不支持）"""
         raise NotImplementedError(f"{self.name} 不支持指数日线数据")
 
+    def get_stock_daily(
+        self,
+        code: str,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> pd.DataFrame:
+        """获取个股日线行情（部分数据源可能不支持）"""
+        raise NotImplementedError(f"{self.name} 不支持个股日线数据")
+
+    def get_stock_fundamentals(self, code: str) -> pd.DataFrame:
+        """获取个股主要财务指标（部分数据源可能不支持）"""
+        raise NotImplementedError(f"{self.name} 不支持个股财务指标")
+
+    def get_stock_valuation(self, code: str) -> pd.DataFrame:
+        """获取个股估值历史（部分数据源可能不支持）"""
+        raise NotImplementedError(f"{self.name} 不支持个股估值")
+
+    def get_stock_earnings_forecasts(self, report_period: date) -> pd.DataFrame:
+        """获取某报告期的业绩预告（部分数据源可能不支持）"""
+        raise NotImplementedError(f"{self.name} 不支持个股业绩预告")
+
     def get_fund_index(
         self,
         index_name: str,

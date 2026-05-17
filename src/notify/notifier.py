@@ -10,13 +10,14 @@ from email.mime.text import MIMEText
 import httpx
 from loguru import logger
 
+from src.core.config import settings
+
 
 class BaseNotifier(ABC):
     """通知渠道基类"""
 
     @abstractmethod
-    def send(self, title: str, content: str) -> bool:
-        ...
+    def send(self, title: str, content: str) -> bool: ...
 
 
 class EmailNotifier(BaseNotifier):
@@ -106,3 +107,43 @@ class NotifyManager:
                 channel.send(title, content)
             except Exception as e:
                 logger.error(f"通知发送失败 ({type(channel).__name__}): {e}")
+
+    @property
+    def channel_count(self) -> int:
+        return len(self._channels)
+
+
+def build_notify_manager() -> NotifyManager:
+    """Build configured notification channels."""
+    cfg = settings().notify
+    manager = NotifyManager()
+    if not cfg.enabled:
+        return manager
+
+    email = cfg.channels.get("email")
+    if email and email.enabled:
+        manager.add_channel(
+            EmailNotifier(
+                smtp_host=email.smtp_host,
+                smtp_port=email.smtp_port,
+                username=getattr(email, "username", ""),
+                password=getattr(email, "password", ""),
+                receiver=getattr(email, "receiver", ""),
+            )
+        )
+
+    wechat = cfg.channels.get("wechat")
+    if wechat and wechat.enabled:
+        manager.add_channel(WeChatNotifier(webhook_url=wechat.webhook_url))
+
+    return manager
+
+
+def broadcast_configured(title: str, content: str) -> bool:
+    """Broadcast through enabled channels and report whether any channel existed."""
+    manager = build_notify_manager()
+    if manager.channel_count == 0:
+        logger.debug("未启用通知渠道，跳过告警推送")
+        return False
+    manager.broadcast(title, content)
+    return True

@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.analysis.valuation import ValuationAnalyzer
 from src.analysis.fed_model import FEDModelAnalyzer
-from src.analysis.sentiment import SentimentAnalyzer
 from src.analysis.regression import RegressionAnalyzer
+from src.analysis.sentiment import SentimentAnalyzer
+from src.analysis.valuation import ValuationAnalyzer
 
 
 class TestValuationAnalyzer:
@@ -21,12 +21,14 @@ class TestValuationAnalyzer:
 
     def test_valuation_snapshot(self):
         analyzer = ValuationAnalyzer()
-        df = pd.DataFrame({
-            "trade_date": pd.bdate_range("2019-01-01", periods=1260).date,
-            "pe": np.random.uniform(8, 20, 1260),
-            "pb": np.random.uniform(0.8, 2.0, 1260),
-            "dividend_yield": np.random.uniform(1, 4, 1260),
-        })
+        df = pd.DataFrame(
+            {
+                "trade_date": pd.bdate_range("2019-01-01", periods=1260).date,
+                "pe": np.random.uniform(8, 20, 1260),
+                "pb": np.random.uniform(0.8, 2.0, 1260),
+                "dividend_yield": np.random.uniform(1, 4, 1260),
+            }
+        )
         snapshot = analyzer.get_valuation_snapshot(df)
         assert "pe" in snapshot
         assert "zone" in snapshot
@@ -56,9 +58,7 @@ class TestSentiment:
 
     def test_market_temperature(self):
         analyzer = SentimentAnalyzer()
-        result = analyzer.calc_market_temperature(
-            pe_percentile=20, erp=5.0, sentiment_value=-8
-        )
+        result = analyzer.calc_market_temperature(pe_percentile=20, erp=5.0, sentiment_value=-8)
         assert "temperature" in result
         assert 0 <= result["temperature"] <= 100
 

@@ -1,12 +1,14 @@
 """报告中心页 — 基于真实数据生成报告"""
 
-import streamlit as st
-from src.dashboard.styles import inject_global_styles
-inject_global_styles()
-
 from datetime import date
 from pathlib import Path
+
+import streamlit as st
 from loguru import logger
+
+from src.dashboard.styles import inject_global_styles
+
+inject_global_styles()
 
 st.title("📑 报告中心")
 
@@ -30,13 +32,14 @@ st.divider()
 @st.cache_resource(ttl=600)
 def _get_storage():
     from src.data.storage import StorageEngine
+
     return StorageEngine()
 
 
 def _generate_report(report_type: str, report_date: date) -> str:
     """基于真实数据库数据生成报告"""
     storage = _get_storage()
-    lines = [f"# ETFEngine {report_type}", f"", f"**报告日期**: {report_date}", ""]
+    lines = [f"# ETFEngine {report_type}", "", f"**报告日期**: {report_date}", ""]
 
     # 市场估值快照
     lines.append("## 市场估值快照")
@@ -73,15 +76,15 @@ def _generate_report(report_type: str, report_date: date) -> str:
             pe = val_latest.get("pe", 0)
             if pe and pe > 0 and cn10y:
                 erp = 1 / pe * 100 - cn10y
-                lines.append(f"- 沪深300 E/P: {1/pe*100:.2f}%")
+                lines.append(f"- 沪深300 E/P: {1 / pe * 100:.2f}%")
                 lines.append(f"- 10年期国债: {cn10y:.2f}%")
                 lines.append(f"- ERP (股债利差): {erp:.2f}%")
                 if erp > 3:
-                    lines.append(f"- **判断: 股市显著低估，建议偏多**")
+                    lines.append("- **判断: 股市显著低估，建议偏多**")
                 elif erp > 1:
-                    lines.append(f"- **判断: 股债中性，维持均衡**")
+                    lines.append("- **判断: 股债中性，维持均衡**")
                 else:
-                    lines.append(f"- **判断: 股市偏贵，注意风险**")
+                    lines.append("- **判断: 股市偏贵，注意风险**")
     except Exception as e:
         logger.debug(f"报告: 股债数据加载失败: {e}")
         lines.append("- 股债数据暂不可用")
@@ -91,6 +94,7 @@ def _generate_report(report_type: str, report_date: date) -> str:
     lines.append("## 组合持仓状态")
     try:
         from src.core.config import get_portfolio_config
+
         cfg = get_portfolio_config()
         holdings = cfg.get("portfolio", {}).get("holdings", [])
         lines.append("| ETF | 名称 | 目标权重 | 最新价 |")
@@ -98,7 +102,9 @@ def _generate_report(report_type: str, report_date: date) -> str:
         for h in holdings:
             df_etf = storage.get_etf_daily(h["etf"])
             latest_price = f"{df_etf['close'].iloc[-1]:.3f}" if not df_etf.empty else "--"
-            lines.append(f"| {h['etf']} | {h['name']} | {h['target_weight']*100:.0f}% | {latest_price} |")
+            lines.append(
+                f"| {h['etf']} | {h['name']} | {h['target_weight'] * 100:.0f}% | {latest_price} |"
+            )
     except Exception as e:
         logger.debug(f"报告: 持仓数据加载失败: {e}")
         lines.append("- 持仓数据暂不可用")

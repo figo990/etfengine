@@ -2,8 +2,6 @@
 
 from datetime import datetime
 
-import pytest
-
 from src.data.providers.news_provider import NewsArticle, NewsProvider
 
 

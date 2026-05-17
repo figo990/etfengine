@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 import numpy as np
 import pandas as pd
-from loguru import logger
 
 
 class ValuationAnalyzer:
@@ -52,12 +49,8 @@ class ValuationAnalyzer:
             return {}
 
         latest = valuation_df.iloc[-1]
-        pe_pctile = self.calc_percentile(
-            valuation_df["pe"].dropna(), lookback_years
-        )
-        pb_pctile = self.calc_percentile(
-            valuation_df["pb"].dropna(), lookback_years
-        )
+        pe_pctile = self.calc_percentile(valuation_df["pe"].dropna(), lookback_years)
+        pb_pctile = self.calc_percentile(valuation_df["pb"].dropna(), lookback_years)
 
         pe_percentile = pe_pctile.iloc[-1] if not pe_pctile.empty else None
         pb_percentile = pb_pctile.iloc[-1] if not pb_pctile.empty else None

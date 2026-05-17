@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
 
-from src.api.routers import data, strategy
+from src.api.routers import data, data_management, industry_chain, strategy
 
 app = FastAPI(
     title="ETFEngine API",
@@ -40,7 +40,9 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 app.include_router(data.router)
+app.include_router(data_management.router)
 app.include_router(strategy.router)
+app.include_router(industry_chain.router)
 
 
 @app.get("/")

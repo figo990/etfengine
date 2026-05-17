@@ -1,7 +1,6 @@
 """新闻监控引擎测试"""
 
-from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -39,9 +38,7 @@ class TestNewsMonitorDedup:
         assert "新闻B" in titles
 
     def test_dedup_all_unique(self):
-        articles = [
-            NewsArticle(title=f"新闻{i}") for i in range(5)
-        ]
+        articles = [NewsArticle(title=f"新闻{i}") for i in range(5)]
         result = self.monitor._dedup(articles)
         assert len(result) == 5
 
@@ -121,9 +118,13 @@ class TestNewsMonitorFallback:
     def test_no_llm_fallback(self):
         classified = [
             {
-                "title": "消费回暖", "content": "消费数据向好",
-                "source": "cls", "publish_time": None, "url": "",
-                "category": "finance", "matched_sectors": ["消费"],
+                "title": "消费回暖",
+                "content": "消费数据向好",
+                "source": "cls",
+                "publish_time": None,
+                "url": "",
+                "category": "finance",
+                "matched_sectors": ["消费"],
                 "matched_etf_codes": ["159928"],
             },
         ]

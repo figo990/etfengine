@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from src.analysis.earnings_analyzer import attach_yoy_metrics, build_fact_brief_cn
 from src.data.providers.us_sec_earnings_provider import QuarterlyFactPoint, UsSecEarningsProvider
 
@@ -71,12 +69,30 @@ def test_build_quarterly_table_minimal_facts() -> None:
 def test_attach_yoy_and_brief() -> None:
     pts = [
         QuarterlyFactPoint(
-            date(2022, 9, 30), 2022, "Q4", "10-K", date(2022, 10, 28),
-            90e9, 20e9, 1.0, "R", "NI", "EPS",
+            date(2022, 9, 30),
+            2022,
+            "Q4",
+            "10-K",
+            date(2022, 10, 28),
+            90e9,
+            20e9,
+            1.0,
+            "R",
+            "NI",
+            "EPS",
         ),
         QuarterlyFactPoint(
-            date(2023, 9, 30), 2023, "Q4", "10-K", date(2023, 10, 27),
-            89e9, 22e9, 1.1, "R", "NI", "EPS",
+            date(2023, 9, 30),
+            2023,
+            "Q4",
+            "10-K",
+            date(2023, 10, 27),
+            89e9,
+            22e9,
+            1.1,
+            "R",
+            "NI",
+            "EPS",
         ),
     ]
     rows = attach_yoy_metrics("DEMO", "演示公司", pts)
@@ -117,15 +133,19 @@ def test_storage_overseas_roundtrip(tmp_path) -> None:
     assert n == 1
     df = eng.get_overseas_earnings_metrics("ZZZ")
     assert len(df) == 1
-    eng.upsert_overseas_earnings_analysis([{
-        "ticker": "ZZZ",
-        "period_end": date(2024, 6, 30),
-        "summary_zh": "测试摘要",
-        "sentiment": 0.1,
-        "impact_level": "low",
-        "related_etf_codes": ["513100"],
-        "fact_brief": "事实",
-    }])
+    eng.upsert_overseas_earnings_analysis(
+        [
+            {
+                "ticker": "ZZZ",
+                "period_end": date(2024, 6, 30),
+                "summary_zh": "测试摘要",
+                "sentiment": 0.1,
+                "impact_level": "low",
+                "related_etf_codes": ["513100"],
+                "fact_brief": "事实",
+            }
+        ]
+    )
     da = eng.get_overseas_earnings_analysis("ZZZ")
     assert len(da) == 1
     eng.close()

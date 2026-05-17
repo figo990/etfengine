@@ -87,6 +87,7 @@ def calc_xirr(
     """
     try:
         import pyxirr
+
         dates = [cf[0] for cf in cashflows]
         amounts = [cf[1] for cf in cashflows]
         result = pyxirr.xirr(dates, amounts)

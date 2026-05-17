@@ -18,6 +18,7 @@ news_monitor:
   sources:
     - "eastmoney"                # 东方财富
     - "cls"                      # 财联社
+    - "eastmoney_breakfast"      # 东方财富财经早餐/政经资讯
     - "cctv"                     # 央视新闻
 
 fundamental:

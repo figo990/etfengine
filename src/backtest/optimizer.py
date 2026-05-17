@@ -3,20 +3,21 @@
 from __future__ import annotations
 
 import itertools
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, timedelta
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 from loguru import logger
 
-from src.backtest.engine import BacktestConfig, BacktestEngine, BacktestResult
+from src.backtest.engine import BacktestConfig, BacktestEngine
 from src.strategies.base_strategy import BaseStrategy
 
 
 @dataclass
 class OptimizationResult:
     """优化结果"""
+
     best_params: dict[str, Any]
     best_metric: float
     metric_name: str
@@ -74,15 +75,17 @@ class GridSearchOptimizer:
                 result = self.engine.run(strategy, price_data, etf_code, **context)
                 metric_value = getattr(result, self.optimize_metric, 0.0)
 
-                all_results.append({
-                    "params": params,
-                    "metric": metric_value,
-                    "total_return": result.total_return,
-                    "annual_return": result.annual_return,
-                    "max_drawdown": result.max_drawdown,
-                    "sharpe_ratio": result.sharpe_ratio,
-                    "total_trades": result.total_trades,
-                })
+                all_results.append(
+                    {
+                        "params": params,
+                        "metric": metric_value,
+                        "total_return": result.total_return,
+                        "annual_return": result.annual_return,
+                        "max_drawdown": result.max_drawdown,
+                        "sharpe_ratio": result.sharpe_ratio,
+                        "total_trades": result.total_trades,
+                    }
+                )
 
                 if metric_value > best_metric:
                     best_metric = metric_value
@@ -93,9 +96,7 @@ class GridSearchOptimizer:
 
         all_results.sort(key=lambda x: x["metric"], reverse=True)
 
-        logger.info(
-            f"优化完成: 最优{self.optimize_metric}={best_metric:.4f}, 参数={best_params}"
-        )
+        logger.info(f"优化完成: 最优{self.optimize_metric}={best_metric:.4f}, 参数={best_params}")
 
         return OptimizationResult(
             best_params=best_params,
@@ -119,9 +120,9 @@ class WalkForwardValidator:
 
     def __init__(
         self,
-        train_days: int = 504,    # 2年训练
-        test_days: int = 126,     # 半年测试
-        step_days: int = 63,      # 1季度步进
+        train_days: int = 504,  # 2年训练
+        test_days: int = 126,  # 半年测试
+        step_days: int = 63,  # 1季度步进
         optimize_metric: str = "sharpe_ratio",
     ) -> None:
         self.train_days = train_days
@@ -189,15 +190,17 @@ class WalkForwardValidator:
             except Exception:
                 test_metrics = {"total_return": 0, "sharpe_ratio": 0}
 
-            windows.append({
-                "train_start": str(all_dates[start_idx]),
-                "train_end": str(all_dates[train_end_idx - 1]),
-                "test_start": str(all_dates[train_end_idx]),
-                "test_end": str(all_dates[test_end_idx - 1]),
-                "best_params": opt_result.best_params,
-                "train_metric": opt_result.best_metric,
-                "test_metrics": test_metrics,
-            })
+            windows.append(
+                {
+                    "train_start": str(all_dates[start_idx]),
+                    "train_end": str(all_dates[train_end_idx - 1]),
+                    "test_start": str(all_dates[train_end_idx]),
+                    "test_end": str(all_dates[test_end_idx - 1]),
+                    "best_params": opt_result.best_params,
+                    "train_metric": opt_result.best_metric,
+                    "test_metrics": test_metrics,
+                }
+            )
 
             start_idx += self.step_days
 

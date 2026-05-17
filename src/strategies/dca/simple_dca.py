@@ -58,9 +58,7 @@ class SimpleDCAStrategy(BaseStrategy):
             return self._biweekly_signal(current_date, price_data)
         return None
 
-    def _monthly_signal(
-        self, current_date: date, price_data: pd.DataFrame
-    ) -> TradeOrder | None:
+    def _monthly_signal(self, current_date: date, price_data: pd.DataFrame) -> TradeOrder | None:
         month = current_date.month
 
         if self._current_month != month:
@@ -81,9 +79,7 @@ class SimpleDCAStrategy(BaseStrategy):
                 )
         return None
 
-    def _weekly_signal(
-        self, current_date: date, price_data: pd.DataFrame
-    ) -> TradeOrder | None:
+    def _weekly_signal(self, current_date: date, price_data: pd.DataFrame) -> TradeOrder | None:
         week = current_date.isocalendar()[1]
         if self._last_invest_week != week:
             if current_date.weekday() == 0:  # 每周一
@@ -97,9 +93,7 @@ class SimpleDCAStrategy(BaseStrategy):
                 )
         return None
 
-    def _biweekly_signal(
-        self, current_date: date, price_data: pd.DataFrame
-    ) -> TradeOrder | None:
+    def _biweekly_signal(self, current_date: date, price_data: pd.DataFrame) -> TradeOrder | None:
         week = current_date.isocalendar()[1]
         if week % 2 == 1 and self._last_invest_week != week:
             if current_date.weekday() == 0:

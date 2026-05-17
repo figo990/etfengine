@@ -19,26 +19,33 @@ def attach_yoy_metrics(
         ni_yoy = None
         if prev and prev.revenue and p.revenue and prev.revenue != 0:
             rev_yoy = (p.revenue / prev.revenue - 1) * 100
-        if prev and prev.net_income is not None and p.net_income is not None and prev.net_income != 0:
+        if (
+            prev
+            and prev.net_income is not None
+            and p.net_income is not None
+            and prev.net_income != 0
+        ):
             ni_yoy = (p.net_income / prev.net_income - 1) * 100
 
-        rows.append({
-            "ticker": ticker.upper(),
-            "company_name": company_name,
-            "period_end": p.period_end,
-            "fiscal_year": p.fiscal_year,
-            "fiscal_period": p.fiscal_period,
-            "form": p.form,
-            "filed_date": p.filed,
-            "revenue_usd": p.revenue,
-            "net_income_usd": p.net_income,
-            "eps_diluted": p.eps_diluted,
-            "revenue_yoy_pct": rev_yoy,
-            "net_income_yoy_pct": ni_yoy,
-            "revenue_tag": p.revenue_tag,
-            "net_income_tag": p.net_income_tag,
-            "eps_tag": p.eps_tag,
-        })
+        rows.append(
+            {
+                "ticker": ticker.upper(),
+                "company_name": company_name,
+                "period_end": p.period_end,
+                "fiscal_year": p.fiscal_year,
+                "fiscal_period": p.fiscal_period,
+                "form": p.form,
+                "filed_date": p.filed,
+                "revenue_usd": p.revenue,
+                "net_income_usd": p.net_income,
+                "eps_diluted": p.eps_diluted,
+                "revenue_yoy_pct": rev_yoy,
+                "net_income_yoy_pct": ni_yoy,
+                "revenue_tag": p.revenue_tag,
+                "net_income_tag": p.net_income_tag,
+                "eps_tag": p.eps_tag,
+            }
+        )
     return rows
 
 
@@ -58,11 +65,11 @@ def build_fact_brief_cn(
 
     parts = [f"{company_name}（{ticker}）{fy}{fp} 财报要点（SEC XBRL 汇总）："]
     if rev is not None:
-        parts.append(f"营收约 {rev/1e8:.2f} 亿美元。")
+        parts.append(f"营收约 {rev / 1e8:.2f} 亿美元。")
     if ry is not None:
         parts.append(f"营收同比约 {ry:+.1f}%。")
     if ni is not None:
-        parts.append(f"净利润约 {ni/1e8:.2f} 亿美元。")
+        parts.append(f"净利润约 {ni / 1e8:.2f} 亿美元。")
     if ny is not None:
         parts.append(f"净利润同比约 {ny:+.1f}%。")
     if eps is not None:

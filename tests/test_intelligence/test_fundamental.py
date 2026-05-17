@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.analysis.fundamental import FundamentalAnalyzer
 
@@ -35,12 +34,14 @@ class TestFundamentalAnalyzer:
 
     def test_get_fundamental_snapshot_with_data(self):
         n = 300
-        df = pd.DataFrame({
-            "trade_date": pd.bdate_range("2023-01-01", periods=n).date,
-            "pe": np.random.uniform(10, 18, n),
-            "pb": np.random.uniform(1.0, 2.0, n),
-            "dividend_yield": np.random.uniform(1.5, 3.5, n),
-        })
+        df = pd.DataFrame(
+            {
+                "trade_date": pd.bdate_range("2023-01-01", periods=n).date,
+                "pe": np.random.uniform(10, 18, n),
+                "pb": np.random.uniform(1.0, 2.0, n),
+                "dividend_yield": np.random.uniform(1.5, 3.5, n),
+            }
+        )
         snapshot = self.analyzer.get_fundamental_snapshot("沪深300", df)
         assert snapshot["index_name"] == "沪深300"
         assert "pe" in snapshot
@@ -51,11 +52,13 @@ class TestFundamentalAnalyzer:
         n = 300
         pe_base = np.linspace(12, 14, n)
         pb_base = np.linspace(1.2, 1.5, n)
-        df = pd.DataFrame({
-            "trade_date": pd.bdate_range("2023-01-01", periods=n).date,
-            "pe": pe_base + np.random.randn(n) * 0.1,
-            "pb": pb_base + np.random.randn(n) * 0.01,
-        })
+        df = pd.DataFrame(
+            {
+                "trade_date": pd.bdate_range("2023-01-01", periods=n).date,
+                "pe": pe_base + np.random.randn(n) * 0.1,
+                "pb": pb_base + np.random.randn(n) * 0.01,
+            }
+        )
         snapshot = self.analyzer.get_fundamental_snapshot("中证500", df)
         assert "roe_trend" in snapshot
         assert snapshot["roe_trend"] in ("改善", "恶化", "平稳")

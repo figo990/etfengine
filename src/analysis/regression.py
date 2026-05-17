@@ -41,7 +41,7 @@ class RegressionAnalyzer:
         ln_t = np.log(t)
 
         slope, intercept, r_value, p_value, std_err = stats.linregress(ln_t, ln_price)
-        r_squared = r_value ** 2
+        r_squared = r_value**2
 
         fitted_ln = slope * ln_t + intercept
         residuals = ln_price - fitted_ln

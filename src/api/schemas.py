@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,11 @@ class ETFDailyRequest(BaseModel):
 
 
 class BacktestRequest(BaseModel):
-    strategy_type: str = Field(description="策略类型: simple_dca|valuation_dca|ma_deviation_dca|equal_grid|geometric_grid")
+    strategy_type: str = Field(
+        description=(
+            "策略类型: simple_dca|valuation_dca|ma_deviation_dca|equal_grid|geometric_grid"
+        )
+    )
     etf_code: str
     start_date: date | None = None
     end_date: date | None = None
@@ -85,3 +89,19 @@ class RebalanceOrderResponse(BaseModel):
     trade_amount: float
     target_weight: float
     current_weight: float
+
+
+class DataRefreshRequest(BaseModel):
+    task: Literal[
+        "etf_daily",
+        "index_valuation",
+        "bond_yield",
+        "industry_chain_companies",
+        "industry_chain_fundamentals",
+        "industry_chain_news_links",
+        "news_monitor",
+        "overseas_earnings",
+    ]
+    codes: list[str] = Field(default_factory=list)
+    chain_id: str | None = None
+    history_days: int | None = Field(default=None, ge=30, le=1000)

@@ -2,8 +2,6 @@
 
 from unittest.mock import patch
 
-import pytest
-
 from src.intelligence.sector_tracker import PolicyAlert, SectorTracker
 
 
@@ -83,18 +81,30 @@ class TestSectorTracker:
         alerts = {
             "消费": [
                 PolicyAlert(
-                    title="促消费", summary="摘要", sector="消费",
-                    sentiment=0.8, impact_score=1.2, source="cctv",
+                    title="促消费",
+                    summary="摘要",
+                    sector="消费",
+                    sentiment=0.8,
+                    impact_score=1.2,
+                    source="cctv",
                 ),
                 PolicyAlert(
-                    title="零售", summary="摘要2", sector="消费",
-                    sentiment=0.3, impact_score=0.3, source="cls",
+                    title="零售",
+                    summary="摘要2",
+                    sector="消费",
+                    sentiment=0.3,
+                    impact_score=0.3,
+                    source="cls",
                 ),
             ],
             "医药": [
                 PolicyAlert(
-                    title="集采", summary="摘要3", sector="医药",
-                    sentiment=-0.5, impact_score=0.7, source="eastmoney",
+                    title="集采",
+                    summary="摘要3",
+                    sector="医药",
+                    sentiment=-0.5,
+                    impact_score=0.7,
+                    source="eastmoney",
                 ),
             ],
         }

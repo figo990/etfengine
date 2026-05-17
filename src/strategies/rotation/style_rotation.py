@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from src.strategies.base_strategy import BaseStrategy, TradeOrder
@@ -69,9 +68,7 @@ class StyleRotationStrategy(BaseStrategy):
             return -1
         return 0
 
-    def _calc_return_diff_signal(
-        self, prices_a: pd.Series, prices_b: pd.Series
-    ) -> int:
+    def _calc_return_diff_signal(self, prices_a: pd.Series, prices_b: pd.Series) -> int:
         """40日收益差信号：短期动量方向
 
         计算两资产40日收益差，然后看其252日均线穿越方向。
@@ -118,7 +115,7 @@ class StyleRotationStrategy(BaseStrategy):
         if deviation > 0.05:
             return -1  # A相对高估，看多B
         elif deviation < -0.05:
-            return 1   # A相对低估，看多A
+            return 1  # A相对低估，看多A
         return 0
 
     def generate_signal(
@@ -168,7 +165,11 @@ class StyleRotationStrategy(BaseStrategy):
         self._current_holding = target
         current_price = price_data["close"].iloc[-1]
         amount = context.get("position_value", 10000.0)
-        target_name = context.get("asset_a_name", "资产A") if target == "asset_a" else context.get("asset_b_name", "资产B")
+        target_name = (
+            context.get("asset_a_name", "资产A")
+            if target == "asset_a"
+            else context.get("asset_b_name", "资产B")
+        )
 
         return TradeOrder(
             trade_date=current_date,
