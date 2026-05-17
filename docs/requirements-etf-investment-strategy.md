@@ -463,6 +463,8 @@ rebalance:
 
 ### 5.3 目录结构
 
+> **与当前仓库的差异**：下图为早期假想目录名。实际实现中 Streamlit 已收敛为 **总览（`app.py`）+ 7 个工作流页面**（`src/dashboard/pages/02_*` … `08_*`）及 **`legacy_pages/`** 兼容旧页；以仓库 `src/dashboard/` 为准，详见 `README.md` 与 `docs/使用说明.md`。
+
 ```
 etf-strategy-tool/
 ├── pyproject.toml                    # 项目配置 + 依赖管理

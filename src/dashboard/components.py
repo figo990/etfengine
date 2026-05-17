@@ -29,19 +29,16 @@ def render_sidebar_chrome() -> None:
     st.sidebar.caption("v0.1.0 · 仅供研究，不构成投资建议")
     st.sidebar.divider()
     with st.sidebar.expander("工作流导航", expanded=True):
-        render_workflow_nav(compact=True)
+        render_workflow_nav()
     st.sidebar.divider()
 
 
-def render_workflow_nav(*, compact: bool = False) -> None:
+def render_workflow_nav() -> None:
     """Grouped page links aligned with consolidated menu structure."""
     for group, links in WORKFLOW_NAV:
         st.markdown(f'<p class="ee-nav-group">{group}</p>', unsafe_allow_html=True)
         for label, path in links:
-            if compact:
-                st.page_link(path, label=label)
-            else:
-                st.page_link(path, label=label)
+            st.page_link(path, label=label)
 
 
 def render_workflow_quick_links() -> None:
