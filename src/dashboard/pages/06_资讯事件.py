@@ -9,7 +9,12 @@ import plotly.express as px
 import streamlit as st
 
 from src.core.config import load_yaml_config
-from src.dashboard.components import render_empty_state, render_page_header, render_result_table
+from src.dashboard.components import (
+    render_empty_state,
+    render_page_header,
+    render_page_help,
+    render_result_table,
+)
 from src.dashboard.data_refresh import refresh_overseas_earnings
 from src.dashboard.services import update_news_event_followup
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
@@ -21,6 +26,24 @@ configure_dashboard_page("资讯事件")
 inject_global_styles()
 
 render_page_header("资讯事件", "行业新闻、政策追踪、预警事件与海外科技龙头季报。")
+render_page_help(
+    [
+        (
+            "页面用途",
+            "用于跟踪行业新闻、政策事件、情绪变化、重点事件跟进和海外科技龙头季报影响。",
+        ),
+        (
+            "主要功能",
+            [
+                "新闻总览：按行业、情绪、影响等级筛选新闻。",
+                "政策追踪：聚合政策类新闻并支持后续跟进状态。",
+                "事件预警：发现高影响或情绪极端事件。",
+                "外盘季报：查看海外科技龙头财报指标和 ETF 关联影响。",
+            ],
+        ),
+        ("数据依赖", "依赖新闻监控、LLM/关键词分析、海外季报采集和事件跟进记录。"),
+    ]
+)
 
 
 def _parse_json_list(value: object) -> list[str]:
@@ -151,10 +174,18 @@ def _render_news_cards(news: pd.DataFrame) -> None:
         badge = "利多" if sentiment > 0.25 else ("利空" if sentiment < -0.25 else "中性")
         with st.container(border=True):
             st.markdown(f"**{row['标题']}**")
-            st.caption(
-                f"{row['时间']} | {row['来源']} | {row['行业']} | "
-                f"{row['影响']} | {badge} {sentiment:+.2f}"
-            )
+            meta_parts = [
+                str(value).strip()
+                for value in [
+                    row.get("时间"),
+                    row.get("来源"),
+                    row.get("行业"),
+                    row.get("影响"),
+                    f"{badge} {sentiment:+.2f}",
+                ]
+                if str(value or "").strip()
+            ]
+            st.caption(" | ".join(meta_parts))
             if row.get("摘要"):
                 st.write(row["摘要"])
             if row.get("ETF"):

@@ -1,10 +1,12 @@
 """DuckDB 新闻和基本面存储测试"""
 
 from datetime import datetime
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
+import src.data.storage as storage_module
 from src.data.storage import StorageEngine
 
 
@@ -95,6 +97,29 @@ class TestNewsStorage:
         assert result["note"].iloc[0] == "等待政策细则"
 
 
+def test_storage_applies_configured_duckdb_memory_limit(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        storage_module,
+        "settings",
+        lambda: SimpleNamespace(
+            database=SimpleNamespace(
+                path=str(tmp_path / "default.duckdb"),
+                duckdb_memory_limit="256MB",
+            )
+        ),
+    )
+    engine = StorageEngine(db_path=str(tmp_path / "limited.duckdb"))
+    try:
+        result = engine.conn.execute(
+            "SELECT current_setting('memory_limit') AS memory_limit"
+        ).fetchone()
+    finally:
+        engine.close()
+
+    assert result is not None
+    assert "244" in str(result[0]) or "256" in str(result[0])
+
+
 class TestBacktestScenarioStorage:
     def test_save_backtest_scenario(self, storage):
         scenario_id = storage.save_backtest_scenario(
@@ -155,6 +180,28 @@ class TestFundamentalStorage:
         result = storage.get_fundamental_data("中证500", start_date="2025-01-10")
         assert len(result) < 20
         assert len(result) > 0
+
+
+class TestETFInfoStorage:
+    def test_upsert_etf_info_sets_updated_at(self, storage):
+        rows = pd.DataFrame(
+            [
+                {
+                    "code": "510300",
+                    "name": "沪深300ETF",
+                    "index_tracked": "沪深300",
+                    "category": "宽基",
+                    "fund_size": 100.0,
+                    "inception_date": datetime(2012, 5, 4).date(),
+                }
+            ]
+        )
+
+        assert storage.upsert_etf_info(rows) == 1
+        result = storage.get_etf_info("510300")
+
+        assert result["name"].iloc[0] == "沪深300ETF"
+        assert pd.notna(result["updated_at"].iloc[0])
 
 
 class TestDataUpdateRuns:

@@ -10,6 +10,7 @@ from src.dashboard.components import (
     render_empty_state,
     render_metric_cards,
     render_page_header,
+    render_page_help,
     render_result_table,
 )
 from src.dashboard.data_refresh import (
@@ -26,6 +27,25 @@ configure_dashboard_page("产业链研究")
 inject_global_styles()
 
 render_page_header("产业链研究", "产业链图谱、企业趋势、经营质量、重大新闻与横向对比。")
+render_page_help(
+    [
+        (
+            "页面用途",
+            "用于围绕人工智能、机器人、商业航天等方向查看产业链结构、供应链企业、趋势表现和重大新闻。",
+        ),
+        (
+            "主要功能",
+            [
+                "产业链图谱：按上游、中游、下游等环节查看企业、ETF 和指数配置。",
+                "企业趋势：比较产业链企业行情、涨跌幅、新闻热度和高影响事件。",
+                "经营质量：查看企业财务、估值、业绩预告和覆盖率缺口。",
+                "重大新闻：展示与产业链和企业关联的政策、行业、公司新闻。",
+                "横向对比：多个产业链之间比较企业数量、新闻热度、趋势和数据覆盖。",
+            ],
+        ),
+        ("数据依赖", "依赖产业链配置、企业行情、企业财务/估值、新闻采集与新闻关联结果。"),
+    ]
+)
 
 
 @st.cache_data(ttl=300)
@@ -77,6 +97,36 @@ def _join_aliases(values: object) -> str:
     if isinstance(values, list):
         return "、".join(str(value) for value in values)
     return ""
+
+
+def _fmt_number(value: object, digits: int = 2) -> str:
+    try:
+        if value is None or pd.isna(value):
+            return "暂无"
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return "暂无"
+
+
+def _fmt_pct_cell(value: object) -> str:
+    try:
+        if value is None or pd.isna(value):
+            return "暂无"
+        return f"{float(value):+.2f}%"
+    except (TypeError, ValueError):
+        return "暂无"
+
+
+def _fmt_pe(value: object) -> str:
+    try:
+        if value is None or pd.isna(value):
+            return "暂无"
+        numeric = float(value)
+        if numeric <= 0:
+            return "亏损/不可比"
+        return f"{numeric:.2f}"
+    except (TypeError, ValueError):
+        return "暂无"
 
 
 def _render_data_quality(data_quality: dict) -> None:
@@ -283,6 +333,22 @@ with tabs[0]:
                     "pb_percentile": "PB百分位",
                 }
             )
+            for col in ["PE", "PB", "股息率", "PE百分位", "PB百分位"]:
+                if col in index_display.columns:
+                    index_display[col] = index_display[col].map(_fmt_number)
+            if {"PE", "PB", "PE百分位"}.issubset(index_display.columns):
+                missing_count = int(
+                    (
+                        (index_display["PE"] == "暂无")
+                        & (index_display["PB"] == "暂无")
+                        & (index_display["PE百分位"] == "暂无")
+                    ).sum()
+                )
+                if missing_count:
+                    st.caption(
+                        f"{missing_count} 个相关指数暂无估值数据，"
+                        "请在数据管理页补采或补充指数源映射。"
+                    )
             render_result_table(index_display, empty_message="暂无指数估值数据")
 
 with tabs[1]:
@@ -333,6 +399,12 @@ with tabs[1]:
         ]
         table = filtered[display_cols].copy()
         table["aliases"] = table["aliases"].map(_join_aliases)
+        for col in ["return_5d", "return_20d", "return_60d"]:
+            table[col] = table[col].map(_fmt_pct_cell)
+        table["latest_close"] = table["latest_close"].map(_fmt_number)
+        table["pe_ttm"] = table["pe_ttm"].map(_fmt_pe)
+        table["pb"] = table["pb"].map(_fmt_number)
+        table["avg_sentiment"] = table["avg_sentiment"].map(_fmt_number)
         table = table.rename(
             columns={
                 "segment_name": "环节",
@@ -414,6 +486,17 @@ with tabs[2]:
             quality_table = available[quality_cols].copy()
             for col in ["revenue", "net_profit"]:
                 quality_table[col] = quality_table[col] / 1e8
+            for col in [
+                "revenue",
+                "revenue_yoy",
+                "net_profit",
+                "net_profit_yoy",
+                "roe",
+                "pb",
+                "latest_forecast_change_pct",
+            ]:
+                quality_table[col] = quality_table[col].map(_fmt_number)
+            quality_table["pe_ttm"] = quality_table["pe_ttm"].map(_fmt_pe)
             quality_table = quality_table.rename(
                 columns={
                     "segment_name": "环节",

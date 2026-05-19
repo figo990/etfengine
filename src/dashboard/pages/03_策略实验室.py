@@ -11,7 +11,12 @@ import streamlit as st
 
 from src.core.config import get_etf_universe
 from src.dashboard.backtest_jobs import run_strategy_backtest_job
-from src.dashboard.components import render_empty_state, render_page_header, render_result_table
+from src.dashboard.components import (
+    render_empty_state,
+    render_page_header,
+    render_page_help,
+    render_result_table,
+)
 from src.dashboard.services import save_backtest_scenario
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
 from src.dashboard.task_runner import (
@@ -25,6 +30,24 @@ configure_dashboard_page("策略实验室")
 inject_global_styles()
 
 render_page_header("策略实验室", "定投、网格、轮动观察、通用回测与批量回测。")
+render_page_help(
+    [
+        (
+            "页面用途",
+            "用于设计 ETF 策略、提交后台回测、对比回测结果，并保存可复用的策略方案。",
+        ),
+        (
+            "主要功能",
+            [
+                "通用回测：选择 ETF、时间区间和策略参数后提交后台计算。",
+                "批量回测：对多个 ETF 和模板组合批量提交任务。",
+                "任务回看：查看后台回测状态、结果摘要并下载 JSON。",
+                "方案管理：保存表现较好的参数组合，后续继续复用。",
+            ],
+        ),
+        ("数据依赖", "依赖 ETF 历史行情和策略配置；行情不足时请先在数据管理页补采。"),
+    ]
+)
 
 
 def _load_etf_options() -> dict[str, str]:

@@ -12,6 +12,8 @@ from src.dashboard import data_status
 from src.dashboard.data_status import (
     build_backfill_plan,
     get_data_health_report,
+    get_entity_coverage,
+    get_history_depth,
     get_recent_market_gaps,
     get_table_freshness,
 )
@@ -42,6 +44,8 @@ def health_settings(monkeypatch):
     )
     monkeypatch.setattr(data_status, "settings", lambda: config)
     monkeypatch.setattr(data_status, "_configured_etf_codes", lambda: ["510300", "510500"])
+    monkeypatch.setattr(data_status, "_configured_index_names", lambda: ["沪深300", "中证500"])
+    monkeypatch.setattr(data_status, "_configured_overseas_tickers", lambda: ["AAPL", "MSFT"])
 
 
 def test_table_freshness_marks_stale_and_missing(storage):
@@ -106,13 +110,71 @@ def test_backfill_plan_merges_stale_tables_and_gap_codes(storage):
         ]
     )
 
-    plan = build_backfill_plan(freshness, gaps)
+    coverage = pd.DataFrame(
+        [
+            {
+                "数据": "指数基本面",
+                "状态": "缺失",
+                "建议动作": "fundamental_data",
+                "缺失代码": "中证500",
+            }
+        ]
+    )
+
+    plan = build_backfill_plan(freshness, gaps, coverage)
 
     etf_plan = next(item for item in plan if item["task"] == "etf_daily")
     news_plan = next(item for item in plan if item["task"] == "news_monitor")
+    fundamental_plan = next(item for item in plan if item["task"] == "fundamental_data")
     assert etf_plan["codes"] == ["510300", "510500"]
     assert etf_plan["可自动执行"] is True
     assert news_plan["可自动执行"] is True
+    assert fundamental_plan["codes"] == ["中证500"]
+
+
+def test_entity_coverage_detects_missing_expected_codes(storage):
+    storage.upsert_etf_info(pd.DataFrame([{"code": "510300", "name": "沪深300ETF"}]))
+    storage.upsert_fundamental_data(
+        pd.DataFrame(
+            {
+                "trade_date": [date(2026, 5, 15)],
+                "pe": [12.0],
+            }
+        ),
+        "沪深300",
+    )
+
+    coverage = get_entity_coverage(storage)
+
+    etf_info = coverage[coverage["数据"] == "ETF 基础信息"].iloc[0]
+    fundamental = coverage[coverage["数据"] == "指数基本面"].iloc[0]
+    assert etf_info["状态"] == "缺失"
+    assert "510500" in etf_info["缺失代码"]
+    assert fundamental["状态"] == "缺失"
+    assert "中证500" in fundamental["缺失代码"]
+
+
+def test_history_depth_marks_short_history_as_insufficient(storage):
+    storage.upsert_etf_daily(
+        pd.DataFrame(
+            {
+                "trade_date": pd.to_datetime(["2026-05-14", "2026-05-15"]).date,
+                "open": [1.0, 1.0],
+                "high": [1.0, 1.0],
+                "low": [1.0, 1.0],
+                "close": [1.0, 1.0],
+                "volume": [100, 100],
+                "amount": [1000, 1000],
+            }
+        ),
+        "510300",
+    )
+
+    depth = get_history_depth(storage, min_days=183)
+    row = depth[depth["数据"] == "ETF 行情"].iloc[0]
+
+    assert row["状态"] == "不足"
+    assert row["历史天数"] == 1
 
 
 def test_health_report_includes_recent_failures(storage):

@@ -7,7 +7,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.dashboard.components import render_empty_state, render_page_header, render_result_table
+from src.dashboard.components import (
+    render_empty_state,
+    render_page_header,
+    render_page_help,
+    render_result_table,
+)
 from src.dashboard.data_refresh import refresh_etf_daily
 from src.dashboard.services import load_portfolio_config, save_portfolio_config
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
@@ -18,6 +23,24 @@ configure_dashboard_page("组合中心")
 inject_global_styles()
 
 render_page_header("组合中心", "持仓配置、目标权重、再平衡建议与组合风险。")
+render_page_help(
+    [
+        (
+            "页面用途",
+            "用于维护 ETF 组合持仓、目标权重和资金规模，并查看偏离度、风险暴露和再平衡建议。",
+        ),
+        (
+            "主要功能",
+            [
+                "持仓配置：录入组合资产、目标权重和当前持仓。",
+                "组合概览：查看市值、权重偏离、近端走势和集中度。",
+                "再平衡建议：根据目标权重计算需要买入或卖出的金额。",
+                "行情补采：当前价格缺失时可提交后台行情更新。",
+            ],
+        ),
+        ("数据依赖", "依赖 ETF 最新行情和本地组合配置；组合配置会保存在项目数据目录。"),
+    ]
+)
 
 
 def _load_config() -> dict:

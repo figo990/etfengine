@@ -36,6 +36,7 @@ dev = [
     "pytest>=8.3.0",
     "pytest-cov>=6.0.0",
     "pytest-asyncio>=0.24.0",
+    "playwright>=1.48.0",
     "ruff>=0.7.0",
     "mypy>=1.13.0",
     "pre-commit>=4.0.0",
@@ -58,6 +59,8 @@ select = ["E", "F", "W", "I", "N", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# 在部分 Windows 环境下，默认断言重写与 SciPy 等大型包同时加载时可能在收集阶段触发 MemoryError。
+addopts = "--assert=plain"
 
 [tool.mypy]
 python_version = "3.12"

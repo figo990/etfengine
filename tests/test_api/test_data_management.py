@@ -69,6 +69,8 @@ def test_health_endpoint_returns_report(monkeypatch):
             "issue_count": 1,
             "freshness": pd.DataFrame([{"数据": "ETF 行情", "状态": "过期"}]),
             "gaps": pd.DataFrame([{"数据": "ETF 行情", "代码": "510300"}]),
+            "coverage": pd.DataFrame([{"数据": "ETF 基础信息", "覆盖率": 1.0}]),
+            "history_depth": pd.DataFrame([{"数据": "新闻资讯", "状态": "不足"}]),
             "recent_failures": pd.DataFrame(),
             "backfill_plan": [{"task": "etf_daily"}],
         },
@@ -78,7 +80,58 @@ def test_health_endpoint_returns_report(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["issue_count"] == 1
+    assert response.json()["coverage"][0]["数据"] == "ETF 基础信息"
+    assert response.json()["history_depth"][0]["数据"] == "新闻资讯"
     assert response.json()["backfill_plan"][0]["task"] == "etf_daily"
+
+
+def test_health_endpoint_tolerates_missing_optional_sections(monkeypatch):
+    monkeypatch.setattr(
+        data_management,
+        "get_data_health_report",
+        lambda: {
+            "issue_count": 0,
+            "freshness": pd.DataFrame(),
+            "gaps": pd.DataFrame(),
+        },
+    )
+
+    response = client.get("/api/data-management/health")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "issue_count": 0,
+        "freshness": [],
+        "gaps": [],
+        "coverage": [],
+        "history_depth": [],
+        "recent_failures": [],
+        "backfill_plan": [],
+    }
+
+
+def test_refresh_endpoint_routes_new_data_tasks(monkeypatch):
+    monkeypatch.setattr(data_management, "refresh_etf_info", lambda: 2)
+    monkeypatch.setattr(
+        data_management,
+        "refresh_fundamental_data",
+        lambda indices=None: {"沪深300": 1},
+    )
+    monkeypatch.setattr(data_management, "refresh_trade_signals", lambda: 3)
+
+    etf_response = client.post("/api/data-management/refresh", json={"task": "etf_info"})
+    fundamental_response = client.post(
+        "/api/data-management/refresh",
+        json={"task": "fundamental_data", "codes": ["沪深300"]},
+    )
+    signal_response = client.post("/api/data-management/refresh", json={"task": "trade_signals"})
+
+    assert etf_response.status_code == 200
+    assert etf_response.json()["result"] == 2
+    assert fundamental_response.status_code == 200
+    assert fundamental_response.json()["result"] == {"沪深300": 1}
+    assert signal_response.status_code == 200
+    assert signal_response.json()["result"] == 3
 
 
 def test_refresh_endpoint_routes_industry_chain_fundamentals(monkeypatch):
@@ -236,3 +289,45 @@ def test_get_refresh_task_endpoint_404(monkeypatch):
     response = client.get("/api/data-management/tasks/missing")
 
     assert response.status_code == 404
+
+
+def test_get_refresh_task_results_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        data_management,
+        "get_dashboard_task",
+        lambda task_id: DashboardTask(
+            id=task_id,
+            name="ETF 行情补采",
+            status="success",
+            task_key="api:etf_daily",
+            task_type="data_refresh",
+        ),
+    )
+
+    class FakeStorage:
+        def init_schema(self):
+            pass
+
+        def get_dashboard_task_results(self, task_id):
+            return pd.DataFrame(
+                [
+                    {
+                        "task_id": task_id,
+                        "result_key": "510300",
+                        "result_value": "2",
+                        "value_type": "number",
+                        "created_at": "2026-05-17 10:00:00",
+                    }
+                ]
+            )
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(data_management, "StorageEngine", FakeStorage)
+
+    response = client.get("/api/data-management/tasks/task-1/results")
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert response.json()["data"][0]["result_key"] == "510300"

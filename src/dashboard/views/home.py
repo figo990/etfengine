@@ -9,6 +9,7 @@ from src.dashboard.components import (
     render_data_status_bar,
     render_metric_cards,
     render_page_header,
+    render_page_help,
     render_result_table,
     render_workflow_quick_links,
 )
@@ -58,6 +59,22 @@ def render_home(*, title: str = "总览") -> None:
     render_page_header(
         title,
         "市场状态、数据新鲜度、产业链热度与研究工作流入口。",
+    )
+    render_page_help(
+        [
+            (
+                "页面用途",
+                "作为研究工作台总览，用于快速确认市场估值位置、数据是否新鲜、产业链热度和后续工作入口。",
+            ),
+            (
+                "使用建议",
+                [
+                    "先看顶部宽基指标，判断市场整体估值温度。",
+                    "再看数据状态，发现过期或缺失后进入数据管理补采。",
+                    "通过产业链热度和工作流入口跳转到更细页面继续分析。",
+                ],
+            ),
+        ]
     )
 
     metrics = _load_market_metrics()

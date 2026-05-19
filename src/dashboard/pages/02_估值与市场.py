@@ -11,6 +11,7 @@ from src.dashboard.components import (
     render_empty_state,
     render_metric_cards,
     render_page_header,
+    render_page_help,
     render_result_table,
 )
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
@@ -20,6 +21,24 @@ configure_dashboard_page("估值与市场")
 inject_global_styles()
 
 render_page_header("估值与市场", "统一查看主要宽基估值、市场温度、股债性价比和历史分位变化。")
+render_page_help(
+    [
+        (
+            "页面用途",
+            "用于判断主要宽基指数当前估值位置、市场温度和股债性价比，辅助仓位和再平衡决策。",
+        ),
+        (
+            "核心看点",
+            [
+                "市场温度：通过 PE/PB 百分位观察低估、适中或偏高区域。",
+                "指数对比：横向比较沪深300、中证500、中证1000、上证50等主要指数。",
+                "股债性价比：结合沪深300盈利收益率与中国10年国债收益率观察权益吸引力。",
+                "历史走势：查看估值分位随时间变化，避免只看单点数据。",
+            ],
+        ),
+        ("数据依赖", "依赖指数估值、国债收益率和历史估值序列；若为空或过旧，请到数据管理页补采。"),
+    ]
+)
 
 INDEX_NAMES = ["沪深300", "中证500", "中证1000", "上证50", "创业板指", "中证红利"]
 ZONE_COLORS = {

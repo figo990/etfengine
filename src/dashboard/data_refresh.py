@@ -176,6 +176,154 @@ def refresh_bond_yield() -> int:
         return -1
 
 
+def refresh_etf_info() -> int:
+    """更新 ETF 基础信息."""
+    import pandas as pd
+
+    from src.core.config import get_etf_universe
+    from src.data.fetcher import DataFetcher
+    from src.data.storage import StorageEngine
+
+    started_at = datetime.now()
+    storage = StorageEngine()
+    storage.init_schema()
+    fetcher = DataFetcher()
+    try:
+        df = fetcher.get_etf_list()
+        universe = get_etf_universe()
+        configured_rows = []
+        for items in universe.get("etf_universe", {}).values():
+            for item in items:
+                configured_rows.append(
+                    {
+                        "code": item.get("code", ""),
+                        "name": item.get("name", ""),
+                        "index_tracked": item.get("index", ""),
+                        "category": item.get("category", ""),
+                    }
+                )
+        if configured_rows:
+            configured = pd.DataFrame(configured_rows)
+            df = pd.concat([df, configured], ignore_index=True)
+            df = df.drop_duplicates(subset=["code"], keep="first")
+        rows = storage.upsert_etf_info(df)
+        storage.close()
+        _log_update_run(
+            "ETF 基础信息",
+            started_at,
+            {
+                "status": "success",
+                "success_count": 1 if rows > 0 else 0,
+                "skipped_count": 1 if rows == 0 else 0,
+                "failed_count": 0,
+                "rows_written": rows,
+            },
+            details={"rows": rows},
+        )
+        return rows
+    except Exception as e:
+        logger.warning(f"更新 ETF 基础信息失败: {e}")
+        storage.close()
+        _log_update_run(
+            "ETF 基础信息",
+            started_at,
+            {
+                "status": "failed",
+                "success_count": 0,
+                "skipped_count": 0,
+                "failed_count": 1,
+                "rows_written": 0,
+            },
+            error_message=str(e),
+        )
+        return -1
+
+
+def refresh_fundamental_data(indices: list[str] | None = None) -> dict[str, int]:
+    """更新指数基本面数据."""
+    from src.analysis.fundamental import FundamentalAnalyzer
+    from src.data.storage import StorageEngine
+
+    started_at = datetime.now()
+    storage = StorageEngine()
+    storage.init_schema()
+    analyzer = FundamentalAnalyzer()
+    indices = indices or ["沪深300", "中证500", "中证1000", "上证50", "创业板指", "中证红利"]
+    results = {}
+    for index_name in indices:
+        try:
+            df = analyzer.get_index_fundamental(index_name)
+            if df.empty:
+                df = storage.get_index_valuation(index_name)
+                if not df.empty:
+                    df = df.copy()
+                    if {"pb", "pe"}.issubset(df.columns):
+                        df["roe"] = df["pb"] / df["pe"]
+                    df["roe_trend"] = "待确认"
+            results[index_name] = storage.upsert_fundamental_data(df, index_name)
+        except Exception as e:
+            logger.warning(f"更新 {index_name} 基本面失败: {e}")
+            results[index_name] = -1
+    storage.close()
+    _log_update_run(
+        "指数基本面",
+        started_at,
+        _summarize_mapping_results(results),
+        details=results,
+    )
+    return results
+
+
+def refresh_trade_signals() -> int:
+    """生成并入库交易信号."""
+    from src.signals.signal_engine import SignalEngine
+
+    started_at = datetime.now()
+    engine = SignalEngine()
+    try:
+        engine.storage.init_schema()
+        signals = engine.generate_daily_signals()
+        rows = len(signals)
+        _log_update_run(
+            "交易信号",
+            started_at,
+            {
+                "status": "success",
+                "success_count": rows,
+                "skipped_count": 0 if rows else 1,
+                "failed_count": 0,
+                "rows_written": rows,
+            },
+            details=[
+                {
+                    "strategy_name": signal.strategy_name,
+                    "etf_code": signal.etf_code,
+                    "direction": signal.direction.value,
+                    "reason": signal.reason,
+                }
+                for signal in signals
+            ],
+        )
+        return rows
+    except Exception as e:
+        logger.warning(f"生成交易信号失败: {e}")
+        _log_update_run(
+            "交易信号",
+            started_at,
+            {
+                "status": "failed",
+                "success_count": 0,
+                "skipped_count": 0,
+                "failed_count": 1,
+                "rows_written": 0,
+            },
+            error_message=str(e),
+        )
+        return -1
+    finally:
+        engine.close()
+
+
 def refresh_industry_chain_companies(
     chain_id: str | None = None,
     history_days: int | None = None,
@@ -532,9 +680,9 @@ def retry_failed_update(task_name: str, details: dict) -> dict | int | None:
     if task_name == "国债收益率":
         return refresh_bond_yield()
 
-    if task_name == "产业链企业行情":
-        results = details.get("results", {})
-        failed = [code for code, rows in results.items() if rows < 0]
+        if task_name == "产业链企业行情":
+            results = details.get("results", {})
+            failed = [code for code, rows in results.items() if rows < 0]
         return (
             refresh_industry_chain_companies(
                 chain_id=details.get("chain_id"),
@@ -591,6 +739,15 @@ def retry_failed_update(task_name: str, details: dict) -> dict | int | None:
     if task_name == "外盘季报":
         return refresh_overseas_earnings()
 
+    if task_name == "ETF 基础信息":
+        return refresh_etf_info()
+
+    if task_name == "指数基本面":
+        return refresh_fundamental_data()
+
+    if task_name == "交易信号":
+        return refresh_trade_signals()
+
     return None
 
 
@@ -602,10 +759,16 @@ def execute_backfill_plan(plan: list[dict]) -> list[dict]:
         codes = item.get("codes") or None
         if task == "etf_daily":
             result = refresh_etf_daily(codes=codes)
+        elif task == "etf_info":
+            result = refresh_etf_info()
         elif task == "index_valuation":
             result = refresh_index_valuation()
+        elif task == "fundamental_data":
+            result = refresh_fundamental_data()
         elif task == "bond_yield":
             result = refresh_bond_yield()
+        elif task == "trade_signals":
+            result = refresh_trade_signals()
         elif task == "industry_chain_companies":
             result = refresh_industry_chain_companies(company_codes=codes)
         elif task == "industry_chain_fundamentals":
@@ -654,7 +817,7 @@ def _render_global_task_status() -> None:
                 st.rerun()
         else:
             st.caption("暂无后台任务。")
-        st.page_link("pages/08_数据管理.py", label="打开数据管理")
+        st.caption("数据管理入口：左侧主导航 -> 数据管理")
 
 
 def render_refresh_sidebar() -> None:
@@ -671,6 +834,13 @@ def render_refresh_sidebar() -> None:
                 task_key="sidebar:etf_daily",
             )
 
+        if st.button("🏷️ 更新 ETF 基础信息", width="stretch"):
+            _submit_refresh_task(
+                "ETF 基础信息补采",
+                refresh_etf_info,
+                task_key="sidebar:etf_info",
+            )
+
         if st.button("📈 更新估值数据", width="stretch"):
             _submit_refresh_task(
                 "指数估值补采",
@@ -678,11 +848,25 @@ def render_refresh_sidebar() -> None:
                 task_key="sidebar:index_valuation",
             )
 
+        if st.button("📚 更新指数基本面", width="stretch"):
+            _submit_refresh_task(
+                "指数基本面补采",
+                refresh_fundamental_data,
+                task_key="sidebar:fundamental_data",
+            )
+
         if st.button("🏦 更新国债收益率", width="stretch"):
             _submit_refresh_task(
                 "国债收益率补采",
                 refresh_bond_yield,
                 task_key="sidebar:bond_yield",
+            )
+
+        if st.button("🎯 生成交易信号", width="stretch"):
+            _submit_refresh_task(
+                "交易信号生成",
+                refresh_trade_signals,
+                task_key="sidebar:trade_signals",
             )
 
         if st.button("🏭 更新产业链企业", width="stretch"):

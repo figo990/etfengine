@@ -9,6 +9,7 @@ database:
   engine: "duckdb"  # sqlite | duckdb
   path: "data/db/etfengine.duckdb"
   sqlite_path: "data/db/etfengine.sqlite"
+  duckdb_memory_limit: null  # 例如 "1GB"；null 表示使用 DuckDB 默认策略
 
 data_source:
   primary: "akshare"

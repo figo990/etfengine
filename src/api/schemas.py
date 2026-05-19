@@ -94,8 +94,11 @@ class RebalanceOrderResponse(BaseModel):
 class DataRefreshRequest(BaseModel):
     task: Literal[
         "etf_daily",
+        "etf_info",
         "index_valuation",
+        "fundamental_data",
         "bond_yield",
+        "trade_signals",
         "industry_chain_companies",
         "industry_chain_fundamentals",
         "industry_chain_news_links",

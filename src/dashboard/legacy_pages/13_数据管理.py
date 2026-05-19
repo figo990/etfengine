@@ -13,12 +13,15 @@ from src.dashboard.data_refresh import (
     execute_backfill_plan,
     refresh_bond_yield,
     refresh_etf_daily,
+    refresh_etf_info,
+    refresh_fundamental_data,
     refresh_index_valuation,
     refresh_industry_chain_companies,
     refresh_industry_chain_fundamental_bundle,
     refresh_industry_chain_news_links,
     refresh_news_monitor,
     refresh_overseas_earnings,
+    refresh_trade_signals,
     retry_failed_update,
 )
 from src.dashboard.data_status import get_data_health_report
@@ -72,11 +75,25 @@ with tab_manual:
                 task_key="manual:etf_daily",
             )
 
+        if st.button("更新 ETF 基础信息", width="stretch"):
+            _submit_manual_task(
+                "ETF 基础信息补采",
+                refresh_etf_info,
+                task_key="manual:etf_info",
+            )
+
         if st.button("更新指数估值", width="stretch"):
             _submit_manual_task(
                 "指数估值补采",
                 refresh_index_valuation,
                 task_key="manual:index_valuation",
+            )
+
+        if st.button("更新指数基本面", width="stretch"):
+            _submit_manual_task(
+                "指数基本面补采",
+                refresh_fundamental_data,
+                task_key="manual:fundamental_data",
             )
 
         if st.button("更新国债收益率", width="stretch"):
@@ -99,6 +116,13 @@ with tab_manual:
                 "外盘季报补采",
                 refresh_overseas_earnings,
                 task_key="manual:overseas_earnings",
+            )
+
+        if st.button("生成交易信号", width="stretch"):
+            _submit_manual_task(
+                "交易信号生成",
+                refresh_trade_signals,
+                task_key="manual:trade_signals",
             )
 
     with col2:
@@ -236,6 +260,13 @@ with tab_health:
         width="stretch",
         hide_index=True,
     )
+
+    st.markdown("#### 实体覆盖率")
+    coverage = health_report["coverage"]
+    if coverage.empty:
+        st.info("暂无可检查的实体覆盖率。")
+    else:
+        st.dataframe(coverage, width="stretch", hide_index=True)
 
     st.markdown("#### 近端断档")
     gaps = health_report["gaps"]

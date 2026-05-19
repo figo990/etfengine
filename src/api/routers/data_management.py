@@ -5,18 +5,22 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
 
 from src.api.schemas import DataRefreshRequest
 from src.dashboard.data_refresh import (
     refresh_bond_yield,
     refresh_etf_daily,
+    refresh_etf_info,
+    refresh_fundamental_data,
     refresh_index_valuation,
     refresh_industry_chain_companies,
     refresh_industry_chain_fundamental_bundle,
     refresh_industry_chain_news_links,
     refresh_news_monitor,
     refresh_overseas_earnings,
+    refresh_trade_signals,
 )
 from src.dashboard.data_status import get_data_health_report, get_table_freshness
 from src.dashboard.task_runner import (
@@ -28,6 +32,16 @@ from src.dashboard.task_runner import (
 from src.data.storage import StorageEngine
 
 router = APIRouter(prefix="/api/data-management", tags=["数据管理"])
+
+
+def _report_records(report: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    value = report.get(key)
+    return value.to_dict("records") if isinstance(value, pd.DataFrame) else []
+
+
+def _recent_failure_records(report: dict[str, Any]) -> list[dict[str, Any]]:
+    value = report.get("recent_failures")
+    return value.astype(str).to_dict("records") if isinstance(value, pd.DataFrame) else []
 
 
 def _refresh_task_spec(
@@ -43,6 +57,8 @@ def _refresh_task_spec(
             (),
             {"codes": request.codes or None},
         )
+    if request.task == "etf_info":
+        return ("ETF 基础信息补采", "api:etf_info", refresh_etf_info, (), {})
     if request.task == "index_valuation":
         return (
             "指数估值补采",
@@ -51,8 +67,18 @@ def _refresh_task_spec(
             (),
             {"indices": request.codes or None},
         )
+    if request.task == "fundamental_data":
+        return (
+            "指数基本面补采",
+            f"api:fundamental_data:{codes_key}",
+            refresh_fundamental_data,
+            (),
+            {"indices": request.codes or None},
+        )
     if request.task == "bond_yield":
         return ("国债收益率补采", "api:bond_yield", refresh_bond_yield, (), {})
+    if request.task == "trade_signals":
+        return ("交易信号生成", "api:trade_signals", refresh_trade_signals, (), {})
     if request.task == "industry_chain_companies":
         key = (
             f"api:industry_chain_companies:{request.chain_id or 'all'}:"
@@ -103,11 +129,13 @@ def get_data_health():
     """查询数据新鲜度、断档、最近失败和补采建议."""
     report = get_data_health_report()
     return {
-        "issue_count": report["issue_count"],
-        "freshness": report["freshness"].to_dict("records"),
-        "gaps": report["gaps"].to_dict("records"),
-        "recent_failures": report["recent_failures"].astype(str).to_dict("records"),
-        "backfill_plan": report["backfill_plan"],
+        "issue_count": report.get("issue_count", 0),
+        "freshness": _report_records(report, "freshness"),
+        "gaps": _report_records(report, "gaps"),
+        "coverage": _report_records(report, "coverage"),
+        "history_depth": _report_records(report, "history_depth"),
+        "recent_failures": _recent_failure_records(report),
+        "backfill_plan": report.get("backfill_plan", []),
     }
 
 
@@ -173,6 +201,27 @@ def get_refresh_task(task_id: str):
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
     return dashboard_task_to_dict(task, include_result=True)
+
+
+@router.get("/tasks/{task_id}/results")
+def get_refresh_task_results(task_id: str):
+    """查询后台任务结果索引，避免远程调用方解析大 JSON。"""
+    task = get_dashboard_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+    storage = StorageEngine()
+    try:
+        storage.init_schema()
+        df = storage.get_dashboard_task_results(task_id)
+    finally:
+        storage.close()
+    if not df.empty:
+        df["created_at"] = df["created_at"].astype(str)
+    return {
+        "task_id": task_id,
+        "count": len(df),
+        "data": df.to_dict("records"),
+    }
 
 
 @router.post("/refresh")

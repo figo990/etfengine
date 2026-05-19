@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      run_dashboard_audit:
+        description: "Run Streamlit browser audit"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  schedule:
+    - cron: "0 20 * * *"
+
+jobs:
+  pytest:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
+  dashboard-audit:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.run_dashboard_audit == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+
+      - name: Install Chromium
+        run: python -m playwright install chromium
+
+      - name: Start Streamlit
+        shell: pwsh
+        run: |
+          $process = Start-Process python `
+            -ArgumentList "-m", "streamlit", "run", "src/dashboard/app.py", "--server.headless", "true", "--server.port", "8502" `
+            -PassThru
+          $process.Id | Out-File -Encoding ascii streamlit.pid
+          Start-Sleep -Seconds 20
+
+      - name: Run dashboard audit
+        shell: pwsh
+        env:
+          DASHBOARD_AUDIT_BASE_URL: "http://127.0.0.1:8502"
+        run: python scripts/audit_dashboard_pages.py
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-audit
+          path: tmp_page_audit/
+          if-no-files-found: ignore
+
+      - name: Stop Streamlit
+        if: always()
+        shell: pwsh
+        run: |
+          if (Test-Path streamlit.pid) {
+            $pidValue = Get-Content streamlit.pid
+            Stop-Process -Id $pidValue -ErrorAction SilentlyContinue
+          }

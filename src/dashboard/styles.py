@@ -124,6 +124,27 @@ GLOBAL_CSS = """
         color: var(--ee-muted);
         margin: 0.5rem 0 0.15rem 0;
     }
+
+    @media (max-width: 700px) {
+        .block-container {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+            padding-top: 0.75rem !important;
+        }
+        .ee-page-header {
+            padding: 0.75rem 0.9rem;
+            margin-bottom: 0.85rem;
+        }
+        .ee-page-title {
+            font-size: 1.35rem;
+        }
+        .ee-page-caption {
+            font-size: 0.85rem;
+        }
+        [data-testid="stTabs"] button[data-baseweb="tab"] {
+            padding: 0.4rem 0.65rem;
+        }
+    }
 </style>
 """
 
@@ -149,7 +170,7 @@ def configure_dashboard_page(page_title: str) -> None:
         page_title=f"{page_title} | ETFEngine",
         page_icon="📊",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="auto",
         menu_items=MENU_ITEMS,
     )
 

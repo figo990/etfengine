@@ -14,6 +14,7 @@ from src.dashboard.components import (
     render_empty_state,
     render_metric_cards,
     render_page_header,
+    render_page_help,
     render_result_table,
 )
 from src.dashboard.data_status import get_table_freshness
@@ -30,6 +31,24 @@ configure_dashboard_page("报告中心")
 inject_global_styles()
 
 render_page_header("报告中心", "周报/月报生成，整合估值、组合、产业链、资讯与数据状态。")
+render_page_help(
+    [
+        (
+            "页面用途",
+            "用于生成投资周报/月报，回看历史报告，并检查报告生成所需的数据状态。",
+        ),
+        (
+            "主要功能",
+            [
+                "生成报告：选择周报或月报后提交后台生成任务。",
+                "生成任务：查看报告任务状态、结果和可下载文件。",
+                "历史报告：浏览已生成的 Markdown 报告内容。",
+                "推送设置：查看自动周报/月报和任务清理配置。",
+            ],
+        ),
+        ("数据依赖", "报告会整合估值、组合、产业链、资讯事件和数据健康信息。"),
+    ]
+)
 
 
 @st.cache_data(ttl=300)

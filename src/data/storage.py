@@ -15,11 +15,12 @@ class StorageEngine:
     """DuckDB 数据存储引擎"""
 
     def __init__(self, db_path: str | None = None) -> None:
+        cfg = settings().database
         if db_path is not None:
             self._db_path = db_path
         else:
-            cfg = settings().database
             self._db_path = cfg.path
+        self._duckdb_memory_limit = getattr(cfg, "duckdb_memory_limit", None)
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn: duckdb.DuckDBPyConnection | None = None
 
@@ -27,7 +28,15 @@ class StorageEngine:
     def conn(self) -> duckdb.DuckDBPyConnection:
         if self._conn is None:
             self._conn = duckdb.connect(self._db_path)
+            self._apply_connection_pragmas()
         return self._conn
+
+    def _apply_connection_pragmas(self) -> None:
+        """Apply optional DuckDB connection settings from config."""
+        if not self._duckdb_memory_limit:
+            return
+        escaped_limit = str(self._duckdb_memory_limit).replace("'", "''")
+        self._conn.execute(f"PRAGMA memory_limit='{escaped_limit}'")
 
     def close(self) -> None:
         if self._conn:
@@ -80,9 +89,11 @@ class StorageEngine:
                 index_tracked VARCHAR,
                 category VARCHAR,
                 fund_size DOUBLE,
-                inception_date DATE
+                inception_date DATE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        self._ensure_column("etf_info", "updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
 
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS trade_signals (
@@ -96,6 +107,10 @@ class StorageEngine:
                 confidence DOUBLE,
                 generated_at TIMESTAMP
             )
+        """)
+        self.conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_signals_natural_key
+            ON trade_signals(strategy_name, etf_code, signal_date)
         """)
 
         self.conn.execute("""
@@ -324,6 +339,17 @@ class StorageEngine:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS dashboard_task_results (
+                task_id VARCHAR,
+                result_key VARCHAR,
+                result_value VARCHAR,
+                value_type VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (task_id, result_key)
+            )
+        """)
         self._ensure_column("dashboard_tasks", "task_type", "VARCHAR DEFAULT 'general'")
         self._ensure_column("dashboard_tasks", "tags", "VARCHAR DEFAULT '[]'")
 
@@ -386,6 +412,34 @@ class StorageEngine:
             FROM df
         """)
         return len(df)
+
+    def upsert_etf_info(self, df: pd.DataFrame) -> int:
+        """插入/更新 ETF 基础信息."""
+        if df.empty:
+            return 0
+
+        df = df.copy()
+        for col in ["index_tracked", "category", "fund_size", "inception_date"]:
+            if col not in df.columns:
+                df[col] = None
+        df["inception_date"] = pd.to_datetime(df["inception_date"], errors="coerce").dt.date
+
+        self.conn.execute("""
+            INSERT OR REPLACE INTO etf_info
+            SELECT code, name, index_tracked, category, fund_size, inception_date,
+                   CURRENT_TIMESTAMP
+            FROM df
+        """)
+        return len(df)
+
+    def get_etf_info(self, code: str | None = None, limit: int = 5000) -> pd.DataFrame:
+        """查询 ETF 基础信息."""
+        if code:
+            return self.conn.execute("SELECT * FROM etf_info WHERE code = ?", [code]).fetchdf()
+        return self.conn.execute(
+            "SELECT * FROM etf_info ORDER BY code LIMIT ?",
+            [limit],
+        ).fetchdf()
 
     def get_etf_daily(
         self,
@@ -1110,7 +1164,8 @@ class StorageEngine:
         import json
         from datetime import datetime
 
-        result = row.get("result")
+        raw_result = row.get("result")
+        result = raw_result
         tags = row.get("tags", [])
         if isinstance(result, (dict, list, tuple)):
             result = json.dumps(result, ensure_ascii=False, default=str)
@@ -1152,7 +1207,93 @@ class StorageEngine:
                    started_at, finished_at, result, error, updated_at
             FROM df
         """)
+        if result:
+            self.upsert_dashboard_task_results(str(row["id"]), raw_result)
         return str(row["id"])
+
+    def _dashboard_task_result_rows(self, task_id: str, result: object) -> list[dict]:
+        """Convert a task result into searchable key/value rows."""
+        import json
+
+        rows: list[dict] = []
+
+        def add_row(key: str, value: object) -> None:
+            if value is None:
+                value_type = "null"
+                encoded = ""
+            elif isinstance(value, bool):
+                value_type = "bool"
+                encoded = str(value).lower()
+            elif isinstance(value, int | float):
+                value_type = "number"
+                encoded = str(value)
+            elif isinstance(value, str):
+                value_type = "string"
+                encoded = value
+            else:
+                value_type = type(value).__name__
+                encoded = json.dumps(value, ensure_ascii=False, default=str)
+            rows.append(
+                {
+                    "task_id": task_id,
+                    "result_key": key,
+                    "result_value": encoded,
+                    "value_type": value_type,
+                }
+            )
+
+        def walk(prefix: str, value: object) -> None:
+            if isinstance(value, dict):
+                if not value:
+                    add_row(prefix or "result", {})
+                for child_key, child_value in value.items():
+                    key = str(child_key)
+                    walk(f"{prefix}.{key}" if prefix else key, child_value)
+                return
+            if isinstance(value, list | tuple):
+                add_row(f"{prefix}.__count__" if prefix else "__count__", len(value))
+                for idx, item in enumerate(value[:50]):
+                    walk(f"{prefix}.{idx}" if prefix else str(idx), item)
+                if len(value) > 50:
+                    add_row(f"{prefix}.__truncated__" if prefix else "__truncated__", True)
+                return
+            add_row(prefix or "result", value)
+
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except json.JSONDecodeError:
+                pass
+        walk("", result)
+        return rows
+
+    def upsert_dashboard_task_results(self, task_id: str, result: object) -> int:
+        """Persist flattened task result rows for lightweight querying."""
+        rows = self._dashboard_task_result_rows(task_id, result)
+        self.conn.execute("DELETE FROM dashboard_task_results WHERE task_id = ?", [task_id])
+        if not rows:
+            return 0
+        df = pd.DataFrame(rows)  # noqa: F841 - DuckDB replacement scan reads this variable.
+        self.conn.execute("""
+            INSERT OR REPLACE INTO dashboard_task_results (
+                task_id, result_key, result_value, value_type
+            )
+            SELECT task_id, result_key, result_value, value_type
+            FROM df
+        """)
+        return len(rows)
+
+    def get_dashboard_task_results(self, task_id: str) -> pd.DataFrame:
+        """Return flattened result rows for one dashboard task."""
+        return self.conn.execute(
+            """
+            SELECT task_id, result_key, result_value, value_type, created_at
+            FROM dashboard_task_results
+            WHERE task_id = ?
+            ORDER BY result_key
+            """,
+            [task_id],
+        ).fetchdf()
 
     def get_dashboard_tasks(self, limit: int = 50) -> pd.DataFrame:
         """Return persisted dashboard background tasks."""
@@ -1202,6 +1343,10 @@ class StorageEngine:
             """
         ).fetchone()[0]
         self.conn.execute("DELETE FROM dashboard_tasks WHERE status = 'success'")
+        self.conn.execute("""
+            DELETE FROM dashboard_task_results
+            WHERE task_id NOT IN (SELECT id FROM dashboard_tasks)
+        """)
         return int(count or 0)
 
     def delete_success_dashboard_tasks_older_than(self, retention_days: int) -> int:
@@ -1226,6 +1371,10 @@ class StorageEngine:
             """,
             [cutoff],
         )
+        self.conn.execute("""
+            DELETE FROM dashboard_task_results
+            WHERE task_id NOT IN (SELECT id FROM dashboard_tasks)
+        """)
         return int(count or 0)
 
     _ALLOWED_TABLES = {

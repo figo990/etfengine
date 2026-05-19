@@ -10,13 +10,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from loguru import logger
 
+from src.analysis.fed_model import FEDModelAnalyzer
+from src.analysis.fundamental import FundamentalAnalyzer
+from src.analysis.sentiment import SentimentAnalyzer
+from src.analysis.valuation import ValuationAnalyzer
 from src.core.config import get_etf_universe, get_portfolio_config
 from src.core.logging import setup_logging
 from src.data.storage import StorageEngine
-from src.analysis.valuation import ValuationAnalyzer
-from src.analysis.fed_model import FEDModelAnalyzer
-from src.analysis.sentiment import SentimentAnalyzer
-from src.analysis.fundamental import FundamentalAnalyzer
 
 
 class ReportGenerator:
@@ -36,7 +36,7 @@ class ReportGenerator:
         week_end = today
 
         lines = [
-            f"# ETFEngine 周报",
+            "# ETFEngine 周报",
             f"**报告日期**: {today}",
             f"**报告周期**: {week_start} ~ {week_end}",
             "",
@@ -78,7 +78,7 @@ class ReportGenerator:
         month_start = today.replace(day=1)
 
         lines = [
-            f"# ETFEngine 月报",
+            "# ETFEngine 月报",
             f"**报告日期**: {today}",
             f"**报告月份**: {today.strftime('%Y年%m月')}",
             "",

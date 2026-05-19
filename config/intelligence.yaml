@@ -15,14 +15,50 @@ news_monitor:
   max_news_per_day: 200          # 每日最多处理条数
   dedup_window_hours: 24         # 去重时间窗口
   llm_batch_size: 10             # LLM 批量分析大小
+  target_history_days: 183       # 产业链新闻趋势目标历史深度
   sources:
     - "eastmoney"                # 东方财富
     - "cls"                      # 财联社
     - "eastmoney_breakfast"      # 东方财富财经早餐/政经资讯
     - "cctv"                     # 央视新闻
+  source_registry:
+    eastmoney:
+      provider: "akshare.stock_info_global_em"
+      history_mode: "latest_window"
+      stable_for_backfill: false
+      note: "财经新闻近端窗口，适合增量积累，不保证半年回溯。"
+    cls:
+      provider: "akshare.stock_info_global_cls"
+      history_mode: "latest_window"
+      stable_for_backfill: false
+      note: "财联社快讯近端窗口，适合高频增量采集。"
+    eastmoney_breakfast:
+      provider: "akshare.stock_info_cjzc_em"
+      history_mode: "latest_window"
+      stable_for_backfill: false
+      note: "政经资讯近端窗口，作为政策新闻补充。"
+    cctv:
+      provider: "akshare.news_cctv"
+      history_mode: "date"
+      stable_for_backfill: true
+      note: "按日期抓取央视新闻，可作为政策新闻历史补采候选。"
 
 fundamental:
   update_frequency: "weekly"     # 基本面数据更新频率
+  target_history_days: 183       # 指数基本面/估值趋势目标历史深度
+  source_registry:
+    index_valuation:
+      primary: "akshare.stock_zh_index_value_csindex"
+      fallback: "akshare.index_value_name_funddb"
+      history_mode: "provider_window"
+      stable_for_backfill: true
+      note: "中证指数估值接口通常可回溯较长周期；以健康检查的历史深度为准。"
+    index_fundamental:
+      primary: "derived_from_index_valuation"
+      fallback: ""
+      history_mode: "derived"
+      stable_for_backfill: false
+      note: "当前基本面由估值序列派生，后续应替换为正式财报/指数基本面源。"
   tracked_indices:
     - "沪深300"
     - "中证500"

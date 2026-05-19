@@ -24,7 +24,29 @@ class FundamentalAnalyzer:
         """获取指数基本面历史数据（通过韭圈儿/funddb）"""
         logger.debug(f"获取指数基本面: {index_name}")
         try:
-            df = ak.index_value_name_funddb(symbol=index_name)
+            code_map = {
+                "沪深300": "000300",
+                "中证500": "000905",
+                "中证1000": "000852",
+                "上证50": "000016",
+                "创业板指": "399006",
+                "中证红利": "000922",
+                "科创50": "000688",
+            }
+            index_code = code_map.get(index_name, index_name)
+            if hasattr(ak, "index_value_name_funddb"):
+                df = ak.index_value_name_funddb(symbol=index_name)
+            else:
+                raw = ak.stock_zh_index_value_csindex(symbol=index_code)
+                if raw is None or raw.empty:
+                    return pd.DataFrame()
+                df = pd.DataFrame(
+                    {
+                        "trade_date": raw.iloc[:, 0],
+                        "pe": raw.iloc[:, 6] if raw.shape[1] > 6 else None,
+                        "dividend_yield": raw.iloc[:, 8] if raw.shape[1] > 8 else None,
+                    }
+                )
             rename_map = {}
             for col in df.columns:
                 col_lower = col.lower()
@@ -41,8 +63,29 @@ class FundamentalAnalyzer:
 
             df = df.rename(columns=rename_map)
             if "trade_date" in df.columns:
-                df["trade_date"] = pd.to_datetime(df["trade_date"]).dt.date
-            return df.sort_values("trade_date").reset_index(drop=True)
+                df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce").dt.date
+            for col in ["pe", "pb", "dividend_yield", "roe"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+            if "roe" not in df.columns and {"pe", "pb"}.issubset(df.columns):
+                df["roe"] = self.calc_roe_trend(df["pb"], df["pe"])
+            if "pe" in df.columns and "pe_percentile" not in df.columns:
+                df["pe_percentile"] = df["pe"].rank(pct=True) * 100
+            if "pb" in df.columns and "pb_percentile" not in df.columns:
+                df["pb_percentile"] = df["pb"].rank(pct=True) * 100
+            if "roe" in df.columns:
+                recent = df["roe"].rolling(60, min_periods=5).mean()
+                previous = recent.shift(60)
+                df["roe_trend"] = np.select(
+                    [recent > previous * 1.02, recent < previous * 0.98],
+                    ["改善", "恶化"],
+                    default="平稳",
+                )
+            return (
+                df.dropna(subset=["trade_date"])
+                .sort_values("trade_date")
+                .reset_index(drop=True)
+            )
         except Exception as e:
             logger.warning(f"获取 {index_name} 基本面数据失败: {e}")
             return pd.DataFrame()

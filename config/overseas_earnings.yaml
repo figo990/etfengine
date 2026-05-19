@@ -46,7 +46,7 @@ watchlist:
     related_etf_codes: ["513100", "512480"]
   - ticker: "TSM"
     name: "台积电"
-    cik: null
+    cik: "skip"  # ADR/非 SEC companyfacts 稳定覆盖对象，跳过强制覆盖率检查
     related_etf_codes: ["513100", "513030"]
 
 # LLM 解读（与 intelligence.yaml 共用 DEEPSEEK_API_KEY）；关闭则仅展示结构化指标与规则摘要

@@ -38,7 +38,7 @@ def render_workflow_nav() -> None:
     for group, links in WORKFLOW_NAV:
         st.markdown(f'<p class="ee-nav-group">{group}</p>', unsafe_allow_html=True)
         for label, path in links:
-            st.page_link(path, label=label)
+            st.caption(f"{label} · {path}")
 
 
 def render_workflow_quick_links() -> None:
@@ -51,7 +51,7 @@ def render_workflow_quick_links() -> None:
         for label, path in links:
             if path == "app.py":
                 continue
-            st.page_link(path, label=label)
+            st.caption(f"{label} · {path}")
 
 
 def render_page_header(title: str, caption: str = "") -> None:
@@ -62,6 +62,25 @@ def render_page_header(title: str, caption: str = "") -> None:
         f'<h1 class="ee-page-title">{title}</h1>{cap_html}</div>',
         unsafe_allow_html=True,
     )
+
+
+def render_page_help(
+    sections: Sequence[tuple[str, str | Sequence[str]]],
+    *,
+    title: str = "功能说明",
+    expanded: bool = False,
+) -> None:
+    """Render collapsible page guidance without taking over the main workspace."""
+    if not sections:
+        return
+    with st.expander(title, expanded=expanded):
+        for section_title, content in sections:
+            st.markdown(f"**{section_title}**")
+            if isinstance(content, str):
+                st.write(content)
+            else:
+                for item in content:
+                    st.markdown(f"- {item}")
 
 
 def render_metric_cards(metrics: Sequence[MetricSpec]) -> None:

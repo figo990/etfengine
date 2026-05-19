@@ -50,11 +50,15 @@ coverage.xml
 .ruff_cache/
 
 # Streamlit
-.streamlit/
 streamlit-*.log
+!.streamlit/
+!.streamlit/config.toml
 
 # Local audit / scratch (not part of repo)
 tmp_page_audit/
+tmp_pytest/
+tmp_mcp_e2e/
+tmp_streamlit_audit.pid
 
 # Playwright MCP artifacts
 .playwright-mcp/

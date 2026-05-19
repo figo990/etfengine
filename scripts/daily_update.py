@@ -12,12 +12,23 @@ from loguru import logger
 
 from src.core.config import get_etf_universe
 from src.core.logging import setup_logging
+from src.dashboard.data_refresh import (
+    refresh_etf_info,
+    refresh_fundamental_data,
+    refresh_index_valuation,
+)
 from src.data.fetcher import DataFetcher
 from src.data.storage import StorageEngine
 
 
 def incremental_update() -> None:
     """增量更新：只拉取最新数据"""
+    try:
+        rows = refresh_etf_info()
+        logger.info(f"ETF 基础信息更新 {rows} 条")
+    except Exception as e:
+        logger.error(f"ETF 基础信息更新失败: {e}")
+
     storage = StorageEngine()
     fetcher = DataFetcher()
 
@@ -65,6 +76,18 @@ def incremental_update() -> None:
         logger.error(f"国债收益率更新失败: {e}")
 
     storage.close()
+
+    try:
+        results = refresh_index_valuation()
+        logger.info(f"指数估值更新完成: {results}")
+    except Exception as e:
+        logger.error(f"指数估值更新失败: {e}")
+
+    try:
+        results = refresh_fundamental_data()
+        logger.info(f"指数基本面更新完成: {results}")
+    except Exception as e:
+        logger.error(f"指数基本面更新失败: {e}")
 
 
 def main() -> None:

@@ -17,6 +17,7 @@ class DatabaseConfig(BaseModel):
     engine: str = "duckdb"
     path: str = "data/db/etfengine.duckdb"
     sqlite_path: str = "data/db/etfengine.sqlite"
+    duckdb_memory_limit: str | None = None
 
 
 class RetryConfig(BaseModel):

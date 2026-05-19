@@ -94,6 +94,28 @@ def test_dashboard_task_runner_lists_persisted_history_after_memory_clear():
     assert tasks[0].result == {"rows": 3}
 
 
+def test_dashboard_task_runner_indexes_success_result():
+    task = task_runner.submit_dashboard_task(
+        "测试结果索引",
+        lambda: {"rows": 3, "files": ["report.md"], "meta": {"ok": True}},
+        task_key="test:result-index",
+    )
+    task_runner.wait_dashboard_task(task.id, timeout=5)
+
+    storage = task_runner.StorageEngine()
+    try:
+        storage.init_schema()
+        results = storage.get_dashboard_task_results(task.id)
+    finally:
+        storage.close()
+
+    by_key = {row.result_key: row.result_value for row in results.itertuples()}
+    assert by_key["rows"] == "3"
+    assert by_key["files.__count__"] == "1"
+    assert by_key["files.0"] == "report.md"
+    assert by_key["meta.ok"] == "true"
+
+
 def test_dashboard_task_cleanup_keeps_failed_and_interrupted_history():
     storage = task_runner.StorageEngine()
     old = datetime.now() - timedelta(days=45)
@@ -108,6 +130,7 @@ def test_dashboard_task_cleanup_keeps_failed_and_interrupted_history():
                 "task_key": "cleanup:old-success",
                 "created_at": old,
                 "finished_at": old,
+                "result": {"rows": 1},
             }
         )
         storage.upsert_dashboard_task(
@@ -145,7 +168,14 @@ def test_dashboard_task_cleanup_keeps_failed_and_interrupted_history():
 
     removed = task_runner.cleanup_old_success_dashboard_tasks(retention_days=30)
     remaining = {task.id for task in task_runner.list_dashboard_tasks(limit=10)}
+    storage = task_runner.StorageEngine()
+    try:
+        storage.init_schema()
+        deleted_results = storage.get_dashboard_task_results("old-success")
+    finally:
+        storage.close()
 
     assert removed == 1
     assert "old-success" not in remaining
+    assert deleted_results.empty
     assert {"old-failed", "old-interrupted", "recent-success"}.issubset(remaining)

@@ -88,13 +88,42 @@ class SignalEngine:
         df = pd.DataFrame(rows)  # noqa: F841 - DuckDB replacement scan reads this variable.
         try:
             self.storage.conn.execute("""
-                INSERT OR REPLACE INTO trade_signals (
-                    strategy_name, etf_code, signal_date, direction,
-                    amount, reason, confidence, generated_at
-                ) SELECT strategy_name, etf_code, signal_date, direction,
-                         amount, reason, confidence, generated_at
+                CREATE OR REPLACE TEMPORARY TABLE signal_rows AS
+                SELECT
+                    COALESCE(existing.id, COALESCE((SELECT MAX(id) FROM trade_signals), 0)
+                    + ROW_NUMBER() OVER (
+                        ORDER BY df.strategy_name, df.etf_code, df.signal_date
+                    )) AS id,
+                    df.strategy_name,
+                    df.etf_code,
+                    df.signal_date,
+                    df.direction,
+                    df.amount,
+                    df.reason,
+                    df.confidence,
+                    df.generated_at
                 FROM df
+                LEFT JOIN trade_signals existing
+                  ON existing.strategy_name = df.strategy_name
+                 AND existing.etf_code = df.etf_code
+                 AND existing.signal_date = df.signal_date
             """)
+            self.storage.conn.execute("""
+                DELETE FROM trade_signals
+                USING signal_rows
+                WHERE trade_signals.strategy_name = signal_rows.strategy_name
+                  AND trade_signals.etf_code = signal_rows.etf_code
+                  AND trade_signals.signal_date = signal_rows.signal_date
+            """)
+            self.storage.conn.execute("""
+                INSERT INTO trade_signals (
+                    id, strategy_name, etf_code, signal_date, direction,
+                    amount, reason, confidence, generated_at
+                ) SELECT id, strategy_name, etf_code, signal_date, direction,
+                         amount, reason, confidence, generated_at
+                FROM signal_rows
+            """)
+            self.storage.conn.execute("DROP TABLE signal_rows")
             logger.debug(f"已持久化 {len(signals)} 条信号到数据库")
         except Exception as e:
             logger.warning(f"信号持久化失败: {e}")
