@@ -9,7 +9,8 @@ import pandas as pd
 import streamlit as st
 
 from src.dashboard.data_status import get_table_freshness
-from src.dashboard.nav import WORKFLOW_NAV
+from src.dashboard.formatting import coerce_metric_display, format_display_datetime
+from src.dashboard.nav import PAGE_URL_BY_LABEL, WORKFLOW_NAV
 
 MetricSpec = tuple[str, Any] | tuple[str, Any, Any]
 
@@ -28,30 +29,37 @@ def render_sidebar_chrome() -> None:
     )
     st.sidebar.caption("v0.1.0 · 仅供研究，不构成投资建议")
     st.sidebar.divider()
-    with st.sidebar.expander("工作流导航", expanded=True):
-        render_workflow_nav()
-    st.sidebar.divider()
+    try:
+        from src.dashboard.navigation import using_native_navigation
+
+        show_workflow_nav = not using_native_navigation()
+    except Exception:
+        show_workflow_nav = True
+    if show_workflow_nav:
+        with st.sidebar.expander("工作流导航", expanded=True):
+            render_workflow_nav()
+        st.sidebar.divider()
 
 
 def render_workflow_nav() -> None:
     """Grouped page links aligned with consolidated menu structure."""
     for group, links in WORKFLOW_NAV:
         st.markdown(f'<p class="ee-nav-group">{group}</p>', unsafe_allow_html=True)
-        for label, path in links:
-            st.caption(f"{label} · {path}")
+        for label, _path in links:
+            st.markdown(f"- **{label}**")
 
 
 def render_workflow_quick_links() -> None:
-    """Quick links column on the home page."""
-    st.markdown('<div class="ee-section-title">工作流入口</div>', unsafe_allow_html=True)
-    for group, links in WORKFLOW_NAV:
-        if group == "系统":
-            continue
-        st.caption(group)
-        for label, path in links:
-            if path == "app.py":
-                continue
-            st.caption(f"{label} · {path}")
+    """Compact home-page guidance; full navigation stays in the sidebar."""
+    st.markdown('<div class="ee-section-title">常用步骤</div>', unsafe_allow_html=True)
+    st.markdown(
+        f"""
+1. 在 **[数据管理]({PAGE_URL_BY_LABEL["数据管理"]})** 确认数据新鲜度并补采
+2. 进入 **[估值与市场]({PAGE_URL_BY_LABEL["估值与市场"]})** 查看市场温度
+3. 在 **[资讯事件]({PAGE_URL_BY_LABEL["资讯事件"]})** 跟踪政策与高影响新闻
+        """,
+    )
+    st.caption("更多页面请使用左侧分组导航（洞察 / 策略与组合 / 资讯与报告 / 系统）。")
 
 
 def render_page_header(title: str, caption: str = "") -> None:
@@ -91,10 +99,14 @@ def render_metric_cards(metrics: Sequence[MetricSpec]) -> None:
     for column, metric in zip(columns, metrics):
         if len(metric) == 2:
             label, value = metric
-            column.metric(label, value)
+            column.metric(label, coerce_metric_display(value))
         else:
             label, value, delta = metric
-            column.metric(label, value, delta)
+            column.metric(
+                label,
+                coerce_metric_display(value),
+                coerce_metric_display(delta) if delta is not None else None,
+            )
 
 
 def render_data_status_bar(freshness: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -111,11 +123,14 @@ def render_data_status_bar(freshness: pd.DataFrame | None = None) -> pd.DataFram
         return freshness
 
     available = freshness[freshness["记录数"] > 0]
-    latest_date = available["最新日期"].replace("", pd.NA).dropna()
+    latest_raw = available["最新日期"].replace("", pd.NA).dropna()
+    latest_display = (
+        format_display_datetime(latest_raw.max()) if not latest_raw.empty else "--"
+    )
     render_metric_cards(
         [
             ("已覆盖数据表", f"{len(available)}/{len(freshness)}"),
-            ("最新数据日期", latest_date.max() if not latest_date.empty else "--"),
+            ("最新数据日期", latest_display),
             ("总记录数", f"{int(freshness['记录数'].sum()):,}"),
         ]
     )
@@ -134,6 +149,7 @@ def render_result_table(
     empty_message: str,
     hide_index: bool = True,
     width: str | int = "stretch",
+    accessibility_hint: str | None = None,
     **kwargs: Any,
 ) -> bool:
     """Render a table or a consistent empty state. Return whether data existed."""
@@ -141,6 +157,8 @@ def render_result_table(
     if frame.empty:
         render_empty_state(empty_message)
         return False
+    if accessibility_hint:
+        st.caption(accessibility_hint)
     st.dataframe(
         frame,
         hide_index=hide_index,

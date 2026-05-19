@@ -16,6 +16,7 @@ from src.dashboard.components import (
     render_result_table,
 )
 from src.dashboard.data_refresh import refresh_overseas_earnings
+from src.dashboard.formatting import format_display_datetime
 from src.dashboard.services import update_news_event_followup
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
 from src.dashboard.task_runner import submit_dashboard_task
@@ -80,7 +81,7 @@ def _load_news(limit: int = 300) -> pd.DataFrame:
         rows.append(
             {
                 "id": row.get("id", ""),
-                "时间": str(row.get("publish_time", "")),
+                "时间": format_display_datetime(row.get("publish_time", "")),
                 "标题": row.get("title", ""),
                 "摘要": row.get("summary", ""),
                 "来源": row.get("source", ""),
@@ -165,31 +166,48 @@ def _sector_heatmap(news: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _render_news_cards(news: pd.DataFrame) -> None:
+def _render_news_cards(news: pd.DataFrame, *, page_size: int = 15) -> None:
     if news.empty:
         render_empty_state("暂无新闻数据，请先运行调度器或在数据管理页补采。")
         return
-    for _, row in news.iterrows():
+
+    total = len(news)
+    page_count = max((total + page_size - 1) // page_size, 1)
+    page = st.number_input(
+        "新闻列表页码",
+        min_value=1,
+        max_value=page_count,
+        value=1,
+        step=1,
+        key=f"news_page_{id(news)}",
+    )
+    start = (int(page) - 1) * page_size
+    page_rows = news.iloc[start : start + page_size]
+    st.caption(f"共 {total} 条，当前第 {int(page)}/{page_count} 页（每页 {page_size} 条）")
+
+    for _, row in page_rows.iterrows():
         sentiment = float(row["情绪"])
         badge = "利多" if sentiment > 0.25 else ("利空" if sentiment < -0.25 else "中性")
-        with st.container(border=True):
-            st.markdown(f"**{row['标题']}**")
-            meta_parts = [
-                str(value).strip()
-                for value in [
-                    row.get("时间"),
-                    row.get("来源"),
-                    row.get("行业"),
-                    row.get("影响"),
-                    f"{badge} {sentiment:+.2f}",
-                ]
-                if str(value or "").strip()
+        meta_parts = [
+            str(value).strip()
+            for value in [
+                row.get("时间"),
+                row.get("来源"),
+                row.get("行业"),
+                row.get("影响"),
+                f"{badge} {sentiment:+.2f}",
             ]
-            st.caption(" | ".join(meta_parts))
-            if row.get("摘要"):
-                st.write(row["摘要"])
-            if row.get("ETF"):
-                st.caption(f"关联 ETF: {row['ETF']}")
+            if str(value or "").strip()
+        ]
+        meta_line = " · ".join(meta_parts)
+        summary = str(row.get("摘要") or "").strip()
+        body_parts = [f"**{row['标题']}**", meta_line]
+        if summary and summary != str(row.get("标题", "")).strip():
+            body_parts.append(f"_{summary}_")
+        if row.get("ETF"):
+            body_parts.append(f"关联 ETF: {row['ETF']}")
+        with st.container(border=True):
+            st.markdown("\n\n".join(body_parts))
             if row.get("链接"):
                 st.link_button("查看原文", row["链接"])
 

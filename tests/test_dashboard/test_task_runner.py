@@ -23,10 +23,12 @@ def isolated_task_store(tmp_path, monkeypatch):
     task_runner._ORPHANS_MARKED = False
     task_runner._TASKS.clear()
     task_runner._FUTURES.clear()
+    task_runner._reset_task_store()
     yield
     task_runner._TASKS.clear()
     task_runner._FUTURES.clear()
     task_runner._ORPHANS_MARKED = False
+    task_runner._reset_task_store()
 
 
 def test_dashboard_task_runner_records_success():
@@ -117,11 +119,10 @@ def test_dashboard_task_runner_indexes_success_result():
 
 
 def test_dashboard_task_cleanup_keeps_failed_and_interrupted_history():
-    storage = task_runner.StorageEngine()
     old = datetime.now() - timedelta(days=45)
     recent = datetime.now()
-    try:
-        storage.init_schema()
+
+    def seed_tasks(storage: StorageEngine) -> None:
         storage.upsert_dashboard_task(
             {
                 "id": "old-success",
@@ -163,17 +164,14 @@ def test_dashboard_task_cleanup_keeps_failed_and_interrupted_history():
                 "finished_at": recent,
             }
         )
-    finally:
-        storage.close()
+
+    task_runner._with_task_store(seed_tasks)
 
     removed = task_runner.cleanup_old_success_dashboard_tasks(retention_days=30)
     remaining = {task.id for task in task_runner.list_dashboard_tasks(limit=10)}
-    storage = task_runner.StorageEngine()
-    try:
-        storage.init_schema()
-        deleted_results = storage.get_dashboard_task_results("old-success")
-    finally:
-        storage.close()
+    deleted_results = task_runner._with_task_store(
+        lambda storage: storage.get_dashboard_task_results("old-success")
+    )
 
     assert removed == 1
     assert "old-success" not in remaining

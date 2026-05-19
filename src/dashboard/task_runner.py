@@ -36,6 +36,9 @@ _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dashboard-task
 _TASKS: dict[str, DashboardTask] = {}
 _FUTURES: dict[str, Future] = {}
 _LOCK = Lock()
+_STORE_LOCK = Lock()
+_STORE: StorageEngine | None = None
+_STORE_CLASS: type[StorageEngine] | None = None
 _ORPHANS_MARKED = False
 _ACTIVE_STATUSES = {"queued", "running"}
 _CLEARABLE_STATUSES = {"success"}
@@ -119,58 +122,80 @@ def _task_from_record(record: dict[str, Any]) -> DashboardTask:
     )
 
 
+def _get_task_store() -> StorageEngine:
+    """Return a process-local task store connection guarded by _STORE_LOCK."""
+    global _STORE, _STORE_CLASS
+    storage_class = StorageEngine
+    if _STORE is None or _STORE_CLASS is not storage_class:
+        if _STORE is not None:
+            _STORE.close()
+        _STORE = storage_class()
+        _STORE_CLASS = storage_class
+        _STORE.init_schema()
+    return _STORE
+
+
+def _reset_task_store() -> None:
+    """Close the cached task store. Intended for tests and controlled shutdowns."""
+    global _STORE, _STORE_CLASS
+    with _STORE_LOCK:
+        if _STORE is not None:
+            _STORE.close()
+        _STORE = None
+        _STORE_CLASS = None
+
+
 def _persist_task(task: DashboardTask) -> None:
-    storage = StorageEngine()
     try:
-        storage.init_schema()
-        storage.upsert_dashboard_task(
-            {
-                "id": task.id,
-                "name": task.name,
-                "status": task.status,
-                "task_key": task.task_key,
-                "task_type": task.task_type,
-                "tags": task.tags,
-                "created_at": task.created_at,
-                "started_at": task.started_at,
-                "finished_at": task.finished_at,
-                "result": task.result,
-                "error": task.error,
-            }
-        )
+        with _STORE_LOCK:
+            storage = _get_task_store()
+            storage.upsert_dashboard_task(
+                {
+                    "id": task.id,
+                    "name": task.name,
+                    "status": task.status,
+                    "task_key": task.task_key,
+                    "task_type": task.task_type,
+                    "tags": task.tags,
+                    "created_at": task.created_at,
+                    "started_at": task.started_at,
+                    "finished_at": task.finished_at,
+                    "result": task.result,
+                    "error": task.error,
+                }
+            )
     except Exception as exc:
         logger.warning(f"持久化后台任务状态失败: {exc}")
-    finally:
-        storage.close()
 
 
 def _ensure_task_store() -> None:
     global _ORPHANS_MARKED
-    storage = StorageEngine()
     try:
-        storage.init_schema()
-        if not _ORPHANS_MARKED:
-            interrupted = storage.mark_orphaned_dashboard_tasks()
-            if interrupted:
-                logger.info(f"已标记 {interrupted} 个重启前未完成的后台任务为中断")
-            _ORPHANS_MARKED = True
+        with _STORE_LOCK:
+            storage = _get_task_store()
+            if not _ORPHANS_MARKED:
+                interrupted = storage.mark_orphaned_dashboard_tasks()
+                if interrupted:
+                    logger.info(f"已标记 {interrupted} 个重启前未完成的后台任务为中断")
+                _ORPHANS_MARKED = True
     except Exception as exc:
         logger.warning(f"初始化后台任务持久化表失败: {exc}")
-    finally:
-        storage.close()
+
+
+def _with_task_store(action: Callable[[StorageEngine], Any]) -> Any:
+    """Run a storage action against the cached task store."""
+    with _STORE_LOCK:
+        storage = _get_task_store()
+        return action(storage)
 
 
 def _load_persisted_task(task_id: str) -> DashboardTask | None:
     _ensure_task_store()
-    storage = StorageEngine()
     try:
-        storage.init_schema()
-        df = storage.get_dashboard_task(task_id)
+        df = _with_task_store(lambda storage: storage.get_dashboard_task(task_id))
     except Exception as exc:
         logger.warning(f"读取后台任务状态失败: {exc}")
         return None
-    finally:
-        storage.close()
     if df.empty:
         return None
     return _task_from_record(df.iloc[0].to_dict())
@@ -178,15 +203,11 @@ def _load_persisted_task(task_id: str) -> DashboardTask | None:
 
 def _load_persisted_tasks(limit: int) -> list[DashboardTask]:
     _ensure_task_store()
-    storage = StorageEngine()
     try:
-        storage.init_schema()
-        df = storage.get_dashboard_tasks(limit=limit)
+        df = _with_task_store(lambda storage: storage.get_dashboard_tasks(limit=limit))
     except Exception as exc:
         logger.warning(f"读取后台任务列表失败: {exc}")
         return []
-    finally:
-        storage.close()
     return [_task_from_record(row.to_dict()) for _, row in df.iterrows()]
 
 
@@ -326,12 +347,9 @@ def clear_finished_dashboard_tasks() -> int:
             _TASKS.pop(task_id, None)
             _FUTURES.pop(task_id, None)
     _ensure_task_store()
-    storage = StorageEngine()
-    try:
-        storage.init_schema()
-        persisted_removed = storage.delete_finished_dashboard_tasks()
-    finally:
-        storage.close()
+    persisted_removed = _with_task_store(
+        lambda storage: storage.delete_finished_dashboard_tasks()
+    )
     return max(len(finished_ids), persisted_removed)
 
 
@@ -354,10 +372,7 @@ def cleanup_old_success_dashboard_tasks(retention_days: int | None = None) -> in
             _FUTURES.pop(task_id, None)
 
     _ensure_task_store()
-    storage = StorageEngine()
-    try:
-        storage.init_schema()
-        persisted_removed = storage.delete_success_dashboard_tasks_older_than(retention_days)
-    finally:
-        storage.close()
+    persisted_removed = _with_task_store(
+        lambda storage: storage.delete_success_dashboard_tasks_older_than(retention_days)
+    )
     return max(len(removable), persisted_removed)

@@ -56,6 +56,7 @@ streamlit-*.log
 
 # Local audit / scratch (not part of repo)
 tmp_page_audit/
+tmp_check_all/
 tmp_pytest/
 tmp_mcp_e2e/
 tmp_streamlit_audit.pid

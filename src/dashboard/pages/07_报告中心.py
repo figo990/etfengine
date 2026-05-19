@@ -18,6 +18,7 @@ from src.dashboard.components import (
     render_result_table,
 )
 from src.dashboard.data_status import get_table_freshness
+from src.dashboard.nav import PAGE_URL_BY_LABEL
 from src.dashboard.report_builder import REPORT_DIR, generate_and_save_investment_report
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
 from src.dashboard.task_runner import (
@@ -117,14 +118,20 @@ with tab_generate:
     stats = _load_report_stats()
     render_metric_cards(
         [
-            ("近日报告素材", stats["news_count"]),
+            ("近200条新闻素材", stats["news_count"]),
             ("高影响新闻", stats["high_news"]),
-            ("失败更新", stats["failed_runs"]),
-            ("部分成功", stats["partial_runs"]),
+            ("失败更新任务", stats["failed_runs"]),
+            ("部分成功任务", stats["partial_runs"]),
         ]
     )
+    if stats["failed_runs"] > 0:
+        st.warning(
+            f"检测到 {stats['failed_runs']} 次失败的数据更新。"
+            f"请前往 [数据管理]({PAGE_URL_BY_LABEL['数据管理']}) 查看「更新日志」并重试。"
+        )
 
     st.subheader("报告参数")
+    st.caption("报告日期为周报/月报的锚定日期（非区间选择）。")
     form_cols = st.columns(2)
     report_type = form_cols[0].selectbox("报告类型", ["周报", "月报"])
     report_date_value = form_cols[1].date_input("报告日期", value=date.today())

@@ -14,6 +14,7 @@ from src.dashboard.components import (
     render_page_help,
     render_result_table,
 )
+from src.dashboard.formatting import format_display_datetime, format_valuation_field
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
 from src.data.storage import StorageEngine
 
@@ -120,7 +121,7 @@ def _build_snapshot(valuation_data: dict[str, pd.DataFrame]) -> pd.DataFrame:
         rows.append(
             {
                 "指数": index_name,
-                "日期": str(latest.get("trade_date", "")),
+                "日期": format_display_datetime(latest.get("trade_date", ""), date_only=True),
                 "PE": latest.get("pe"),
                 "PB": latest.get("pb"),
                 "PE百分位": pe_percentile,
@@ -145,7 +146,7 @@ def _render_market_temperature(snapshot: pd.DataFrame) -> None:
     avg_percentile = float(valid["PE百分位"].mean())
     low_count = int((valid["PE百分位"] <= 40).sum())
     high_count = int((valid["PE百分位"] >= 80).sum())
-    latest_date = valid["日期"].max()
+    latest_date = format_display_datetime(valid["日期"].max(), date_only=True)
 
     render_metric_cards(
         [
@@ -159,18 +160,20 @@ def _render_market_temperature(snapshot: pd.DataFrame) -> None:
     c1, c2 = st.columns([1.1, 1.4])
     with c1:
         if avg_percentile < 30:
-            st.success(f"市场偏冷，综合温度 {avg_percentile:.0f}")
+            st.markdown(f"**市场偏冷**，综合温度 {avg_percentile:.0f}")
             st.caption("估值整体偏低，可重点关注再平衡和分批配置机会。")
         elif avg_percentile < 60:
-            st.warning(f"市场中性，综合温度 {avg_percentile:.0f}")
+            st.markdown(f"**市场中性**，综合温度 {avg_percentile:.0f}")
             st.caption("估值处于中间区域，适合维持常规节奏并观察结构分化。")
         else:
-            st.error(f"市场偏热，综合温度 {avg_percentile:.0f}")
+            st.markdown(f"**市场偏热**，综合温度 {avg_percentile:.0f}")
             st.caption("估值位置偏高，应重点关注仓位约束和止盈纪律。")
 
         display = snapshot.copy()
-        for col in ["PE", "PB", "PE百分位", "PB百分位", "股息率"]:
+        for col in ["PE", "PE百分位", "股息率"]:
             display[col] = display[col].map(lambda value: _fmt(value))
+        for col in ["PB", "PB百分位"]:
+            display[col] = display[col].map(lambda value: format_valuation_field(value, col))
         render_result_table(display, empty_message="暂无估值快照")
 
     with c2:

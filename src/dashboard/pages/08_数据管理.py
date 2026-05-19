@@ -55,8 +55,17 @@ render_page_help(
             ],
         ),
         (
+            "推荐使用顺序",
+            [
+                "打开「数据健康」查看新鲜度、覆盖率与失败任务。",
+                "在「手工执行」按建议提交补采；产业链批量任务需先勾选确认。",
+                "在「更新日志」核对结果，对失败记录使用重试。",
+                "通过侧栏「后台任务」查看运行中/失败摘要。",
+            ],
+        ),
+        (
             "使用建议",
-            "先查看数据健康，再按补采建议提交后台任务；并行查看 DuckDB 时优先使用只读连接。",
+            "并行查看 DuckDB 时优先使用只读连接，避免与后台写入冲突。",
         ),
     ]
 )
@@ -136,8 +145,18 @@ def _render_manual_tab() -> None:
             step=30,
         )
         selected_chain_id = chain_options[chain_name]
+        confirm_heavy = st.checkbox(
+            "确认提交耗时较长的产业链补采任务",
+            value=False,
+            key="manual_industry_chain_confirm",
+        )
 
-        if st.button("更新产业链企业行情", type="primary", width="stretch"):
+        if st.button(
+            "更新产业链企业行情",
+            type="primary",
+            width="stretch",
+            disabled=not confirm_heavy,
+        ):
             _submit_manual_task(
                 "产业链企业行情补采",
                 refresh_industry_chain_companies,
@@ -148,14 +167,14 @@ def _render_manual_tab() -> None:
                     f"{int(manual_history_days)}"
                 ),
             )
-        if st.button("更新产业链企业基本面", width="stretch"):
+        if st.button("更新产业链企业基本面", width="stretch", disabled=not confirm_heavy):
             _submit_manual_task(
                 "产业链企业基本面补采",
                 refresh_industry_chain_fundamental_bundle,
                 chain_id=selected_chain_id,
                 task_key=f"manual:industry_chain_fundamentals:{selected_chain_id}",
             )
-        if st.button("刷新产业链新闻关联", width="stretch"):
+        if st.button("刷新产业链新闻关联", width="stretch", disabled=not confirm_heavy):
             _submit_manual_task(
                 "产业链新闻关联刷新",
                 refresh_industry_chain_news_links,
@@ -252,6 +271,7 @@ def _health_list(report: dict, key: str) -> list:
 
 def _render_health_tab() -> None:
     st.subheader("数据健康")
+    st.caption("下方表格支持横向滚动、列筛选与 CSV 导出；关键结论请结合各节标题与状态提示。")
     try:
         health_report, rows = _load_health_report()
     except Exception as exc:

@@ -1,6 +1,9 @@
-from urllib.parse import quote
-
-from scripts.audit_dashboard_pages import PAGES, _bad_text_matches, _is_ignorable_console_error
+from scripts.audit_dashboard_pages import (
+    PAGES,
+    _bad_text_matches,
+    _is_ignorable_console_error,
+    _route_for_page,
+)
 from src.dashboard.nav import WORKFLOW_NAV
 
 
@@ -9,7 +12,7 @@ def test_audit_pages_use_sidebar_routes():
 
     for _, links in WORKFLOW_NAV:
         for name, source_path in links:
-            expected_path = "/" if source_path == "app.py" else "/" + quote(name, safe="")
+            expected_path = _route_for_page(name, source_path)
             assert paths[name] == expected_path
 
     assert all(not path.startswith("/0") for path in paths.values())

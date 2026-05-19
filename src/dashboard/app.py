@@ -1,10 +1,7 @@
-"""Streamlit Dashboard 主入口（总览工作台）"""
+"""Streamlit Dashboard 主入口（st.navigation 单入口）."""
 
 from __future__ import annotations
 
-from src.dashboard.styles import configure_dashboard_page, inject_global_styles
-from src.dashboard.views.home import render_home
+from src.dashboard.navigation import run_dashboard
 
-configure_dashboard_page("总览")
-inject_global_styles()
-render_home(title="ETFEngine")
+run_dashboard()

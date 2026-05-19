@@ -16,7 +16,8 @@ dependencies = [
     "duckdb>=1.1.0",
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
-    "streamlit>=1.40.0",
+    # Dashboard UI 在 Streamlit 1.57.0 验证；升级前请跑 scripts/check_all.ps1 -BrowserAudit
+    "streamlit>=1.40.0,<2",
     "plotly>=5.24.0",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.6.0",

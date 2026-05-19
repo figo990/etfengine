@@ -1,5 +1,7 @@
 # ETFEngine Streamlit 看板 UI/UX 审查报告
 
+> **状态说明**：初版审查（2026-05-18）。后续修复与验收见 [dashboard-uiux-optimization-plan.md](./dashboard-uiux-optimization-plan.md)、[dashboard-navigation-migration.md](./dashboard-navigation-migration.md)。
+
 **审查日期**：2026-05-18  
 **审查对象**：`http://localhost:8501` 上的 Streamlit 多页看板（主入口 `src/dashboard/app.py` 及 `src/dashboard/pages/` 下 7 个子页）  
 **审查方式**：使用 **Chrome DevTools MCP**（`list_pages` / `new_page` / `navigate_page` / `take_snapshot` / `click` / `list_console_messages`）对无障碍树与页面结构进行逐页巡检；尝试 **user-browser-tools** 的 Lighthouse 类审计时，本机 **Browser Connector 未运行**，自动化可访问性/最佳实践分数未能采集。

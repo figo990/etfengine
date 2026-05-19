@@ -166,6 +166,13 @@ def suppress_refresh_sidebar() -> Iterator[None]:
 
 def configure_dashboard_page(page_title: str) -> None:
     """Apply consistent page chrome for every top-level dashboard page."""
+    try:
+        from src.dashboard.navigation import using_native_navigation
+
+        if using_native_navigation():
+            return
+    except Exception:
+        pass
     st.set_page_config(
         page_title=f"{page_title} | ETFEngine",
         page_icon="📊",

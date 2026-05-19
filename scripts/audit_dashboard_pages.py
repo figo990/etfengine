@@ -31,11 +31,17 @@ def _page_path(label: str) -> str:
     return "/" + quote(label, safe="")
 
 
+def _route_for_page(label: str, rel_path: str) -> str:
+    if label == "总览" or rel_path.endswith("01_总览.py"):
+        return "/"
+    return _page_path(label)
+
+
 def _audit_pages() -> list[tuple[str, str, int, int]]:
     pages = []
     for _, links in WORKFLOW_NAV:
         for label, path in links:
-            route = "/" if path == "app.py" else _page_path(label)
+            route = _route_for_page(label, path)
             settle_ms, body_timeout_ms = PAGE_WAIT_BUDGETS.get(
                 label,
                 (DEFAULT_SETTLE_MS, DEFAULT_BODY_TIMEOUT_MS),

@@ -18,6 +18,8 @@ from src.dashboard.data_refresh import (
     refresh_industry_chain_fundamental_bundle,
     refresh_industry_chain_news_links,
 )
+from src.dashboard.formatting import format_display_datetime
+from src.dashboard.nav import PAGE_URL_BY_LABEL
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
 from src.dashboard.task_runner import submit_dashboard_task
 from src.data.storage import StorageEngine
@@ -133,8 +135,12 @@ def _render_data_quality(data_quality: dict) -> None:
     price_coverage = data_quality.get("company_price_coverage", 0)
     fundamental_coverage = data_quality.get("company_fundamental_coverage", 0)
     valuation_coverage = data_quality.get("company_valuation_coverage", 0)
-    latest_market_date = data_quality.get("latest_market_date") or "暂无"
-    latest_report_date = data_quality.get("latest_report_date") or "暂无"
+    latest_market_date = format_display_datetime(
+        data_quality.get("latest_market_date") or "暂无", date_only=True
+    )
+    latest_report_date = format_display_datetime(
+        data_quality.get("latest_report_date") or "暂无", date_only=True
+    )
 
     render_metric_cards(
         [
@@ -218,7 +224,8 @@ snapshot = _load_snapshot(selected_chain_id)
 overview = snapshot["overview"]
 data_quality = snapshot.get("data_quality", {})
 
-st.caption(f"{snapshot['description']} | 更新时间: {snapshot['generated_at']}")
+updated_at = format_display_datetime(snapshot.get("generated_at"))
+st.caption(f"{snapshot['description']} | 更新时间: {updated_at}")
 render_metric_cards(
     [
         ("覆盖企业", overview["company_count"]),
@@ -345,9 +352,11 @@ with tabs[0]:
                     ).sum()
                 )
                 if missing_count:
+                    data_management_url = PAGE_URL_BY_LABEL["数据管理"]
                     st.caption(
                         f"{missing_count} 个相关指数暂无估值数据，"
-                        "请在数据管理页补采或补充指数源映射。"
+                        f"请在 [数据管理]({data_management_url}) 补采「更新指数估值」"
+                        "或补充指数源映射。"
                     )
             render_result_table(index_display, empty_message="暂无指数估值数据")
 

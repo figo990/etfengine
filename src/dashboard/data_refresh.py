@@ -808,7 +808,11 @@ def _render_global_task_status() -> None:
         rows = task_status_rows(limit=8)
         if rows:
             active = sum(1 for row in rows if row["状态"] in {"queued", "running"})
-            st.caption(f"最近任务 {len(rows)} 个，运行中 {active} 个")
+            failed = sum(1 for row in rows if row["状态"] == "failed")
+            summary = f"最近任务 {len(rows)} 个，运行中 {active} 个"
+            if failed:
+                summary += f"，失败 {failed} 个"
+            st.caption(summary)
             display = pd.DataFrame(rows)[["任务", "状态", "类型", "创建时间", "结束时间", "错误"]]
             st.dataframe(display, width="stretch", hide_index=True, height=230)
             if st.button("清理成功任务", width="stretch", key="sidebar_clear_success_tasks"):

@@ -45,13 +45,13 @@ def _load_market_metrics() -> dict:
     return metrics
 
 
-def _fmt_pct(value: object) -> str:
+def _fmt_pct(value: object, *, missing_label: str = "暂无") -> str:
     try:
         if value is None or pd.isna(value):
-            return "--"
+            return missing_label
         return f"{float(value):.1f}%"
     except (TypeError, ValueError):
-        return "--"
+        return missing_label
 
 
 def render_home(*, title: str = "总览") -> None:
@@ -79,12 +79,21 @@ def render_home(*, title: str = "总览") -> None:
 
     metrics = _load_market_metrics()
     metric_cards = []
+    missing_indices: list[str] = []
     for idx in ["沪深300", "中证500", "创业板指", "中证红利"]:
         item = metrics.get(idx, {})
         value = item.get("dividend_yield") if idx == "中证红利" else item.get("pe_percentile")
         label = "股息率" if idx == "中证红利" else "PE百分位"
+        if idx not in metrics:
+            missing_indices.append(idx)
         metric_cards.append((f"{idx} {label}", _fmt_pct(value)))
     render_metric_cards(metric_cards)
+    if missing_indices:
+        missing_text = "、".join(missing_indices)
+        st.caption(
+            f"{missing_text} 暂无估值数据，"
+            "请在左侧进入「数据管理」执行「更新指数估值」。"
+        )
 
     st.divider()
 
@@ -92,7 +101,11 @@ def render_home(*, title: str = "总览") -> None:
     with q1:
         st.markdown('<div class="ee-section-title">数据状态</div>', unsafe_allow_html=True)
         freshness = render_data_status_bar(get_table_freshness())
-        render_result_table(freshness, empty_message="暂无数据状态")
+        render_result_table(
+            freshness,
+            empty_message="暂无数据状态",
+            accessibility_hint="完整字段见下表，可横向滚动或使用表格工具栏搜索/导出。",
+        )
 
     with q2:
         st.markdown('<div class="ee-section-title">产业链热度</div>', unsafe_allow_html=True)

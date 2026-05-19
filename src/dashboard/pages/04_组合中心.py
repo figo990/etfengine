@@ -14,6 +14,7 @@ from src.dashboard.components import (
     render_result_table,
 )
 from src.dashboard.data_refresh import refresh_etf_daily
+from src.dashboard.formatting import format_display_datetime
 from src.dashboard.services import load_portfolio_config, save_portfolio_config
 from src.dashboard.styles import configure_dashboard_page, inject_global_styles
 from src.dashboard.task_runner import submit_dashboard_task
@@ -111,7 +112,7 @@ def _portfolio_table(portfolio: dict) -> pd.DataFrame:
                 "名称": item.get("name", code),
                 "目标权重": target_weight,
                 "目标金额": total_capital * target_weight,
-                "最新价格": price.get("latest_close"),
+                "最新收盘价": price.get("latest_close"),
                 "数据日期": price.get("trade_date", ""),
             }
         )
@@ -156,12 +157,21 @@ with tab_overview:
         display = table.copy()
         display["目标权重"] = display["目标权重"].map(lambda x: f"{x * 100:.1f}%")
         display["目标金额"] = display["目标金额"].map(lambda x: f"¥{x:,.0f}")
-        display["最新价格"] = display["最新价格"].map(
+        display["最新收盘价"] = display["最新收盘价"].map(
             lambda x: f"¥{x:.3f}" if pd.notna(x) else "--"
+        )
+        display["数据日期"] = display["数据日期"].map(
+            lambda value: format_display_datetime(value, date_only=True)
         )
         render_result_table(display, empty_message="暂无持仓数据")
 
-        fig = px.pie(table, values="目标权重", names="名称", title="目标配置权重")
+        pie_labels = table.apply(
+            lambda row: f"{row['代码']} {row['名称'][:8]}"
+            if len(str(row["名称"])) > 8
+            else f"{row['代码']} {row['名称']}",
+            axis=1,
+        )
+        fig = px.pie(table, values="目标权重", names=pie_labels, title="目标配置权重")
         fig.update_layout(height=360)
         st.plotly_chart(fig, width="stretch")
 

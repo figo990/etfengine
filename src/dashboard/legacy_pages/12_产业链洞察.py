@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from src.dashboard.formatting import format_display_datetime
 from src.dashboard.styles import inject_global_styles
 from src.data.storage import StorageEngine
 from src.intelligence.industry_chain_analyzer import IndustryChainAnalyzer
@@ -79,7 +80,8 @@ snapshot = _load_snapshot(selected_chain_id)
 overview = snapshot["overview"]
 data_quality = snapshot.get("data_quality", {})
 
-st.caption(f"{snapshot['description']} | 更新时间: {snapshot['generated_at']}")
+updated_at = format_display_datetime(snapshot.get("generated_at"))
+st.caption(f"{snapshot['description']} | 更新时间: {updated_at}")
 
 metric_cols = st.columns(5)
 metric_cols[0].metric("覆盖企业", overview["company_count"])
@@ -92,10 +94,16 @@ analysis = snapshot["analysis"]
 st.info(f"{analysis['status']} {analysis['trend']} 风险提示：{analysis['risk']}。")
 
 coverage = data_quality.get("company_price_coverage", 0)
-latest_market_date = data_quality.get("latest_market_date") or "暂无"
+latest_market_date = format_display_datetime(
+    data_quality.get("latest_market_date") or "暂无",
+    date_only=True,
+)
 fundamental_coverage = data_quality.get("company_fundamental_coverage", 0)
 valuation_coverage = data_quality.get("company_valuation_coverage", 0)
-latest_report_date = data_quality.get("latest_report_date") or "暂无"
+latest_report_date = format_display_datetime(
+    data_quality.get("latest_report_date") or "暂无",
+    date_only=True,
+)
 if coverage < 1 or fundamental_coverage < 1 or valuation_coverage < 1:
     missing_price = data_quality.get("missing_company_prices", [])
     missing_fundamentals = data_quality.get("missing_company_fundamentals", [])
